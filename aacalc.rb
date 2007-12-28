@@ -1,5 +1,13 @@
 class Army
-	def initialize(infantry, tanks, artillery, fighters, bombers, destroyers, battleships, hit_battleships, carriers, transports, subs)
+
+protected
+
+	attr_reader :infantry, :tanks, :artillery, :fighters, :bombers, :destroyers, :battleships, :hit_battleships, :carriers, :transports, :subs
+	attr_writer :infantry, :tanks, :artillery, :fighters, :bombers, :destroyers, :battleships, :hit_battleships, :carriers, :transports, :subs
+
+public
+
+	def initialize(attack, infantry, tanks, artillery, fighters, bombers, destroyers, battleships, hit_battleships, carriers, transports, subs)
 		@infantry = infantry
 		@tanks = tanks
 		@artillery = artillery
@@ -11,10 +19,11 @@ class Army
 		@carriers = carriers
 		@transports = transports
 		@subs = subs
+		@attack = attack
 	end
 	
 	def dup
-		Army.new(@infantry, @tanks, @artillery, @fighters, @bombers, @destroyers, @battleships, @hit_battleships, @carriers, @transports, @subs)
+		Army.new(@attack, @infantry, @tanks, @artillery, @fighters, @bombers, @destroyers, @battleships, @hit_battleships, @carriers, @transports, @subs)
 	end
 	
 	def value
@@ -72,6 +81,42 @@ class Army
 	end
 	
 	def probability(hits)
-		return 1
+		if hits == 0
+			prob = 1
+			if @attack
+				prob = prob * (1 - (1/6.0))**@infantry
+			else
+				prob = prob * (1 - (2/6.0))**@infantry
+			end
+			prob = prob * (1 - (3/6.0))**@tanks
+			
+			
+		elsif hits > self.size #includes size == 0 case since hits!=0 or above would have take care of it
+			return 0
+		else
+			prob = 0
+			if @infantry > 0
+				temparmy = self.dup
+				temparmy.infantry = temparmy.infantry - 1
+				if @attack
+					prob = prob + (@infantry/self.size.to_f) * (1/6.0) * temparmy.probability(hits - 1)
+					prob = prob + (@infantry/self.size.to_f) * (1 - (1/6.0)) * temparmy.probability(hits)
+				else
+					prob = prob + (@infantry/self.size.to_f) * (2/6.0) * temparmy.probability(hits - 1)
+					prob = prob + (@infantry/self.size.to_f) * (1 - (2/6.0)) * temparmy.probability(hits)
+				end
+			end
+			if @tanks > 0
+				temparmy = self.dup
+				temparmy.tanks = temparmy.tanks - 1
+				prob = prob + (@tanks/self.size.to_f) * (3/6.0) * temparmy.probability(hits - 1)				
+				prob = prob + (@tanks/self.size.to_f) * (1 - (3/6.0)) * temparmy.probability(hits)	
+			end			
+			
+			
+			
+			
+		end
+		return prob
 	end
 end

@@ -83,19 +83,40 @@ public
 	def probability(hits)
 		if hits == 0
 			prob = 1
-			if @attack
+			if @attack #TODO: take Artillery in to account
 				prob = prob * (1 - (1/6.0))**@infantry
 			else
 				prob = prob * (1 - (2/6.0))**@infantry
 			end
+			prob = prob * (1 - (2/6.0))**@artillery
 			prob = prob * (1 - (3/6.0))**@tanks
-			
-			
+			if @attack
+				prob = prob * (1 - (3/6.0))**@fighters
+			else
+				prob = prob * (1 - (4/6.0))**@fighters
+			end
+			if @attack #TODO: special rule for heavy bomber
+				prob = prob * (1 - (4/6.0))**@bombers
+			else
+				prob = prob * (1 - (1/6.0))**@bombers
+			end
+			prob = prob * (1 - (3/6.0))**@destroyers
+			prob = prob * (1 - (4/6.0))**(@battleships + @hit_battleships)
+			if @attack
+				prob = prob * (1 - (1/6.0))**@carriers
+			else
+				prob = prob * (1 - (3/6.0))**@carriers
+			end
+			if ! @attack
+				prob = prob * (1 - (1/6.0))**@transports
+			end
+			prob = prob * (1 - (2/6.0))**@subs #TODO: special rule for subs
+		#TODO: modify 'hits > self.size' case for special rules like heavy bombers
 		elsif hits > self.size #includes size == 0 case since hits!=0 or above would have take care of it
 			return 0
 		else
 			prob = 0
-			if @infantry > 0
+			if @infantry > 0 #TODO: take Artillery in to account
 				temparmy = self.dup
 				temparmy.infantry = temparmy.infantry - 1
 				if @attack
@@ -106,16 +127,93 @@ public
 					prob = prob + (@infantry/self.size.to_f) * (1 - (2/6.0)) * temparmy.probability(hits)
 				end
 			end
+			if @artillery > 0
+				temparmy = self.dup
+				temparmy.artillery = temparmy.artillery - 1
+				prob = prob + (@artillery/self.size.to_f) * (2/6.0) * temparmy.probability(hits - 1)				
+				prob = prob + (@artillery/self.size.to_f) * (1 - (2/6.0)) * temparmy.probability(hits)				
+			end			
 			if @tanks > 0
 				temparmy = self.dup
 				temparmy.tanks = temparmy.tanks - 1
 				prob = prob + (@tanks/self.size.to_f) * (3/6.0) * temparmy.probability(hits - 1)				
 				prob = prob + (@tanks/self.size.to_f) * (1 - (3/6.0)) * temparmy.probability(hits)	
 			end			
+			if @fighters > 0
+				temparmy = self.dup
+				temparmy.fighters = temparmy.fighters - 1
+				if @attack
+					prob = prob + (@fighters/self.size.to_f) * (3/6.0) * temparmy.probability(hits - 1)
+					prob = prob + (@fighters/self.size.to_f) * (1 - (3/6.0)) * temparmy.probability(hits)
+				else
+					prob = prob + (@fighters/self.size.to_f) * (4/6.0) * temparmy.probability(hits - 1)
+					prob = prob + (@fighters/self.size.to_f) * (1 - (4/6.0)) * temparmy.probability(hits)
+				end			
+			end		
+			if @bombers > 0 #TODO: special rule for heavy bombers
+				temparmy = self.dup
+				temparmy.bombers = temparmy.bombers - 1
+				if @attack
+					prob = prob + (@bombers/self.size.to_f) * (4/6.0) * temparmy.probability(hits - 1)
+					prob = prob + (@bombers/self.size.to_f) * (1 - (4/6.0)) * temparmy.probability(hits)
+				else
+					prob = prob + (@bombers/self.size.to_f) * (1/6.0) * temparmy.probability(hits - 1)
+					prob = prob + (@bombers/self.size.to_f) * (1 - (1/6.0)) * temparmy.probability(hits)
+				end			
+			end			
+			if @destroyers > 0
+				temparmy = self.dup
+				temparmy.destroyers = temparmy.destroyers - 1
+				prob = prob + (@destroyers/self.size.to_f) * (3/6.0) * temparmy.probability(hits - 1)
+				prob = prob + (@destroyers/self.size.to_f) * (1 - (3/6.0)) * temparmy.probability(hits)		
+			end				
+			if (@battleships + @hit_battleships) > 0
+				temparmy = self.dup
+				if @battleships > 0
+					temparmy.battleships = temparmy.battleships - 1
+				else
+					temparmy.hit_battleships = temparmy.hit_battleships - 1
+				end
+				prob = prob + ((@battleships + @hit_battleships)/self.size.to_f) * (4/6.0) * temparmy.probability(hits - 1)
+				prob = prob + ((@battleships + @hit_battleships)/self.size.to_f) * (1 - (4/6.0)) * temparmy.probability(hits)		
+			end	
+			if @carriers > 0
+				temparmy = self.dup
+				temparmy.carriers = temparmy.carriers - 1
+				if @attack
+					prob = prob + (@carriers/self.size.to_f) * (1/6.0) * temparmy.probability(hits - 1)
+					prob = prob + (@carriers/self.size.to_f) * (1 - (1/6.0)) * temparmy.probability(hits)
+				else
+					prob = prob + (@carriers/self.size.to_f) * (3/6.0) * temparmy.probability(hits - 1)
+					prob = prob + (@carriers/self.size.to_f) * (1 - (3/6.0)) * temparmy.probability(hits)
+				end			
+			end		
+			if @transports > 0
+				temparmy = self.dup
+				temparmy.transports = temparmy.transports - 1
+				if @attack #TODO: simplify this case, something wrong with second prob = statement?
+					prob = prob + (@transports/self.size.to_f) * (0/6.0) * temparmy.probability(hits - 1)
+					prob = prob + (@transports/self.size.to_f) * (1 - (0/6.0)) * temparmy.probability(hits)
+				else
+					prob = prob + (@transports/self.size.to_f) * (1/6.0) * temparmy.probability(hits - 1)
+					prob = prob + (@transports/self.size.to_f) * (1 - (1/6.0)) * temparmy.probability(hits)
+				end			
+			end	
+			if @subs > 0 #TODO: impliment special rule for subs
+				temparmy = self.dup
+				temparmy.subs = temparmy.subs - 1
+				prob = prob + (@subs/self.size.to_f) * (2/6.0) * temparmy.probability(hits - 1)
+				prob = prob + (@subs/self.size.to_f) * (1 - (2/6.0)) * temparmy.probability(hits)	
+			end	
 			
-			
-			
-			
+		end
+		return prob
+	end
+	
+	def testprob
+		prob = 0
+		0.upto(self.size) do |x|
+			prob = prob + self.probability(x)
 		end
 		return prob
 	end

@@ -34,19 +34,27 @@ public
 		@infantry + @tanks + @artillery + @fighters + @bombers + @destroyers + @battleships + @hit_battleships + @carriers + @transports + @subs
 	end
 	
+	def max_hits
+		return self.size #modify for heavy bombers
+	end
+	
+	def num_aircraft
+		return @fighters + @bombers
+	end
+	
 	def lose(hits)
 		if self.size <= hits
-				@infantry = 0
-				@tanks = 0
-				@artillery = 0
-				@fighters = 0
-				@bombers = 0
-				@destroyers = 0
-				@battleships = 0
-				@hit_battleships = 0
-				@carriers = 0
-				@transports = 0
-				@subs = 0
+			@infantry = 0
+			@tanks = 0
+			@artillery = 0
+			@fighters = 0
+			@bombers = 0
+			@destroyers = 0
+			@battleships = 0
+			@hit_battleships = 0
+			@carriers = 0
+			@transports = 0
+			@subs = 0
 		else	
 			hits.times do
 				if @battleships > 0
@@ -72,12 +80,25 @@ public
 					@carriers = @carriers -1
 				elsif @hit_battleships > 0
 					@hit_battleships = @hit_battleships -1
-				else
-					puts "argh"
 				end
 			end
 		end
 		return self
+	end
+	
+	def lose_aircraft(hits)
+		if self.num_aircraft <= hits
+			@fighters = 0
+			@bombers = 0
+		else
+			hits.times do
+				if @fighters > 0
+					@fighters = @fighters - 1
+				else
+					@bombers = @bombers - 1
+				end
+			end
+		end
 	end
 	
 	def probability(hits)
@@ -90,7 +111,7 @@ public
 			end
 			prob = prob * (1 - (2/6.0))**@artillery
 			prob = prob * (1 - (3/6.0))**@tanks
-			if @attack
+			if @attack#TODO: special rule for jet fighters
 				prob = prob * (1 - (3/6.0))**@fighters
 			else
 				prob = prob * (1 - (4/6.0))**@fighters
@@ -112,7 +133,7 @@ public
 			end
 			prob = prob * (1 - (2/6.0))**@subs #TODO: special rule for subs
 		#TODO: modify 'hits > self.size' case for special rules like heavy bombers
-		elsif hits > self.size #includes size == 0 case since hits!=0 or above would have take care of it
+		elsif hits > self.max_hits #includes size == 0 case since hits!=0 or above would have take care of it
 			return 0
 		else
 			prob = 0
@@ -139,7 +160,7 @@ public
 				prob = prob + (@tanks/self.size.to_f) * (3/6.0) * temparmy.probability(hits - 1)				
 				prob = prob + (@tanks/self.size.to_f) * (1 - (3/6.0)) * temparmy.probability(hits)	
 			end			
-			if @fighters > 0
+			if @fighters > 0 #TODO: special rule for jet fighters
 				temparmy = self.dup
 				temparmy.fighters = temparmy.fighters - 1
 				if @attack
@@ -216,5 +237,77 @@ public
 			prob = prob + self.probability(x)
 		end
 		return prob
+	end
+end
+
+class Battle
+	attr_reader :weight
+	def initialize(attacker, defender, aagun, weight = 1.0)
+		@attacker = attacker.dup
+		@defender = defender.dup
+		@weight = weight
+		
+		#TODO: special rule for bombardment (regular and combined)
+		
+		if aagun
+			@possibilities = Array.new(attacker.num_aircraft) do |x|
+				Battle.new(attacker.lose_aircraft(x),defender,false, ((1/6.0)**x)*((5/6.0)**(possibilities.length - x)) )
+			end
+		elsif (attacker.size != 0) and (defender.size != 0)
+			@possibilities = Array.new(attacker.max_hits + 1) do |x|
+				Array.new(defender.max_hits + 1) do |y|
+					if (x == 0) and (y == 0)
+						nil #to prevent infinite recursion
+					else
+						Battle.new(attacker.dup.lose(y), defender.dup.lose(x), false, attacker.probability(x)*defender.probability(y))
+					end
+				end
+			end
+			@possibilities.flatten
+			@possibilities.shift #gets rid of the first element, which is nil
+		end
+	end
+
+#the '/(1 - attacker.probability(0)*defender.probability(0))' in the next several functions account
+#for the infinite recursion that could happen if both sides kept on not hitting each other
+	
+
+	def prob_attacker_wins
+		if (@attacker.size != 0) and (@defender.size == 0)
+			return 1
+		elsif @attacker.size == 0
+			return 0
+		elsif (@attacker.size == 1) and (@defender.size == 1)
+			return (@attacker.probability(1)*@defender.probability(0))/(1 - @attacker.probability(0)*@defender.probability(0))
+		else
+			(@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_attacker_wins})/(1 - attacker.probability(0)*defender.probability(0))
+		end
+	end
+	
+	def prob_defender_wins
+		if (@attacker.size == 0) and (@defender.size != 0)
+			return 1
+		elsif @defender.size == 0
+			return 0
+		elsif (@attacker.size == 1) and (@defender.size == 1)
+			return (@attacker.probability(0)*@defender.probability(1))/(1 - @attacker.probability(0)*@defender.probability(0))
+		else
+			(@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_defender_wins})/(1 - attacker.probability(0)*defender.probability(0))
+		end	
+	end
+	def prob_mutual_annihilation
+		if (@attacker.size == 0) and (@defender.size == 0)
+			return 1
+		elsif (@attacker.size == 1) and (@defender.size == 1)
+			return (@attacker.probability(1)*@defender.probability(1))/(1 - @attacker.probability(0)*@defender.probability(0))
+		else
+			(@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_mutual_annihilation})/(1 - attacker.probability(0)*defender.probability(0))
+		end
+	end
+	def expected_IPC_loss_attacker
+	
+	end
+	def expected_IPC_loss_defender
+	
 	end
 end

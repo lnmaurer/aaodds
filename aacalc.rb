@@ -35,11 +35,11 @@ public
 	end
 	
 	def max_hits
-		return self.size #modify for heavy bombers
+		self.size #modify for heavy bombers
 	end
 	
 	def num_aircraft
-		return @fighters + @bombers
+		@fighters + @bombers
 	end
 	
 	def lose(hits)
@@ -83,7 +83,7 @@ public
 				end
 			end
 		end
-		return self
+		self
 	end
 	
 	def lose_aircraft(hits)
@@ -258,13 +258,13 @@ class Battle
 				Array.new(defender.max_hits + 1) do |y|
 					if (x == 0) and (y == 0)
 						nil #to prevent infinite recursion
-					else
+					else				
 						Battle.new(attacker.dup.lose(y), defender.dup.lose(x), false, attacker.probability(x)*defender.probability(y))
 					end
 				end
 			end
-			@possibilities.flatten
-			@possibilities.shift #gets rid of the first element, which is nil
+			@possibilities.flatten!
+			@possibilities = @possibilities.reject {|item| item == nil}
 		end
 	end
 
@@ -280,7 +280,7 @@ class Battle
 		elsif (@attacker.size == 1) and (@defender.size == 1)
 			return (@attacker.probability(1)*@defender.probability(0))/(1 - @attacker.probability(0)*@defender.probability(0))
 		else
-			(@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_attacker_wins})/(1 - attacker.probability(0)*defender.probability(0))
+			return (@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_attacker_wins})/(1 - @attacker.probability(0)*@defender.probability(0))
 		end
 	end
 	
@@ -292,16 +292,18 @@ class Battle
 		elsif (@attacker.size == 1) and (@defender.size == 1)
 			return (@attacker.probability(0)*@defender.probability(1))/(1 - @attacker.probability(0)*@defender.probability(0))
 		else
-			(@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_defender_wins})/(1 - attacker.probability(0)*defender.probability(0))
+			return (@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_defender_wins})/(1 - @attacker.probability(0)*@defender.probability(0))
 		end	
 	end
 	def prob_mutual_annihilation
 		if (@attacker.size == 0) and (@defender.size == 0)
 			return 1
+		elsif ((@attacker.size == 0) and (@defender.size != 0)) or ((@attacker.size != 0) and (@defender.size == 0))
+			return 0
 		elsif (@attacker.size == 1) and (@defender.size == 1)
 			return (@attacker.probability(1)*@defender.probability(1))/(1 - @attacker.probability(0)*@defender.probability(0))
 		else
-			(@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_mutual_annihilation})/(1 - attacker.probability(0)*defender.probability(0))
+			return (@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_mutual_annihilation})/(1 - @attacker.probability(0)*@defender.probability(0))
 		end
 	end
 	def expected_IPC_loss_attacker

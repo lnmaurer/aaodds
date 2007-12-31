@@ -263,8 +263,8 @@ class Battle
 					end
 				end
 			end
-			@possibilities.flatten!
-			@possibilities = @possibilities.reject {|item| item == nil}
+			@possibilities.flatten! #@possibilities consists of nested arrays, we don't want it that way
+			@possibilities = @possibilities.reject {|item| item == nil} #get rid of the 'nil' item
 		end
 	end
 
@@ -306,10 +306,32 @@ class Battle
 			return (@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_mutual_annihilation})/(1 - @attacker.probability(0)*@defender.probability(0))
 		end
 	end
-	def expected_IPC_loss_attacker
 	
+	
+	def expected_attacking_army_value
+		if @attacker.size == 0
+			return 0
+		elsif @defender.size == 0
+			return @attacker.value
+		else
+			(@possibilities.inject(0) {|ev,battle| ev + battle.weight*battle.expected_attacking_army_value})/(1 - @attacker.probability(0)*@defender.probability(0))
+		
+		end
+	end
+	def expected_defending_army_value
+		if @defender.size == 0
+			return 0
+		elsif @attacker.size == 0
+			return @defender.value
+		else
+			(@possibilities.inject(0) {|ev,battle| ev + battle.weight*battle.expected_defending_army_value})/(1 - @attacker.probability(0)*@defender.probability(0))
+		end	
+	end
+	
+	def expected_IPC_loss_attacker
+		@attacker.value - self.expected_attacking_army_value
 	end
 	def expected_IPC_loss_defender
-	
+		@defender.value - self.expected_defending_army_value
 	end
 end

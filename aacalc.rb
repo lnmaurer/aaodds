@@ -35,11 +35,23 @@ public
 	end
 	
 	def max_hits
-		self.size #modify for heavy bombers
+		self.size #TODO: modify for heavy bombers
 	end
 	
 	def num_aircraft
 		@fighters + @bombers
+	end
+	
+	def can_bombard #TODO: modify for combined bombardment
+		if @battleships >= 0
+			return true
+		else
+			return false
+		end
+	end
+	
+	def max_bombard_hits
+		@battleships
 	end
 	
 	def lose(hits)
@@ -99,6 +111,16 @@ public
 				end
 			end
 		end
+	end
+	
+	def bombard_probability(hits) #TODO: Special rule for combined bombardment
+		if hits > @battleships
+			return 0
+		elsif hits == 0
+			return (1-(4/6.0))**@battleships
+		else
+			return ((1-(4/6.0))**hits) * ((4/6.0)**(@battleships - hits))
+		end	
 	end
 	
 	def probability(hits)
@@ -246,12 +268,17 @@ class Battle
 		@attacker = attacker.dup
 		@defender = defender.dup
 		@weight = weight
+		@normalize = 1/(1 - @attacker.probability(0)*@defender.probability(0))
 		
-		#TODO: special rule for bombardment (regular and combined)
+		
 		
 		if aagun
 			@possibilities = Array.new(attacker.num_aircraft) do |x|
 				Battle.new(attacker.lose_aircraft(x),defender,false, ((1/6.0)**x)*((5/6.0)**(possibilities.length - x)) )
+			end
+		elsif @attacker.can_bombard #TODO: make so bombardment only happens with amphibious
+			@possibilities = Array.new(attacker.max_bombard_hits) do |x|
+				Battle.new(attacker.lose_ships,defender.lose(x),false, attacker.bombard_probability(x))
 			end
 		elsif (attacker.size != 0) and (defender.size != 0)
 			@possibilities = Array.new(attacker.max_hits + 1) do |x|
@@ -278,9 +305,9 @@ class Battle
 		elsif @attacker.size == 0
 			return 0
 		elsif (@attacker.size == 1) and (@defender.size == 1)
-			return (@attacker.probability(1)*@defender.probability(0))/(1 - @attacker.probability(0)*@defender.probability(0))
+			return (@attacker.probability(1)*@defender.probability(0)) * @normalize
 		else
-			return (@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_attacker_wins})/(1 - @attacker.probability(0)*@defender.probability(0))
+			return (@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_attacker_wins}) * @normalize
 		end
 	end
 	
@@ -290,9 +317,9 @@ class Battle
 		elsif @defender.size == 0
 			return 0
 		elsif (@attacker.size == 1) and (@defender.size == 1)
-			return (@attacker.probability(0)*@defender.probability(1))/(1 - @attacker.probability(0)*@defender.probability(0))
+			return (@attacker.probability(0)*@defender.probability(1)) * @normalize
 		else
-			return (@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_defender_wins})/(1 - @attacker.probability(0)*@defender.probability(0))
+			return (@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_defender_wins}) * @normalize
 		end	
 	end
 	def prob_mutual_annihilation
@@ -301,20 +328,20 @@ class Battle
 		elsif ((@attacker.size == 0) and (@defender.size != 0)) or ((@attacker.size != 0) and (@defender.size == 0))
 			return 0
 		elsif (@attacker.size == 1) and (@defender.size == 1)
-			return (@attacker.probability(1)*@defender.probability(1))/(1 - @attacker.probability(0)*@defender.probability(0))
+			return (@attacker.probability(1)*@defender.probability(1)) * @normalize
 		else
-			return (@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_mutual_annihilation})/(1 - @attacker.probability(0)*@defender.probability(0))
+			return (@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_mutual_annihilation}) * @normalize
 		end
 	end
 	
-	
+	#TODO: add specail rules for bombardment for next four functions, since ships are removed from attacking army but not lost
 	def expected_attacking_army_value
 		if @attacker.size == 0
 			return 0
 		elsif @defender.size == 0
 			return @attacker.value
 		else
-			(@possibilities.inject(0) {|ev,battle| ev + battle.weight*battle.expected_attacking_army_value})/(1 - @attacker.probability(0)*@defender.probability(0))
+			(@possibilities.inject(0) {|ev,battle| ev + battle.weight*battle.expected_attacking_army_value}) * @normalize
 		
 		end
 	end
@@ -324,7 +351,7 @@ class Battle
 		elsif @attacker.size == 0
 			return @defender.value
 		else
-			(@possibilities.inject(0) {|ev,battle| ev + battle.weight*battle.expected_defending_army_value})/(1 - @attacker.probability(0)*@defender.probability(0))
+			(@possibilities.inject(0) {|ev,battle| ev + battle.weight*battle.expected_defending_army_value}) * @normalize
 		end	
 	end
 	

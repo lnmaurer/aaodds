@@ -2,8 +2,8 @@ class Army
 
 protected
 
-	attr_reader :infantry, :tanks, :artillery, :fighters, :bombers, :destroyers, :battleships, :hit_battleships, :carriers, :transports, :subs
-	attr_writer :infantry, :tanks, :artillery, :fighters, :bombers, :destroyers, :battleships, :hit_battleships, :carriers, :transports, :subs
+	attr_reader :infantry, :tanks, :artillery, :fighters, :bombers, :destroyers, :battleships, :hit_battleships, :carriers, :transports, :subs, :pairs
+	attr_writer :infantry, :tanks, :artillery, :fighters, :bombers, :destroyers, :battleships, :hit_battleships, :carriers, :transports, :subs, :pairs
 
 public
 
@@ -19,7 +19,12 @@ public
 		@carriers = carriers
 		@transports = transports
 		@subs = subs
-		@attack = attack
+		@attack = attack #true or false
+		if @infantry > @artillery
+			@pairs = @artillery
+		else
+			@pairs = @infantry
+		end
 	end
 	
 	def dup
@@ -43,7 +48,7 @@ public
 	end
 	
 	def can_bombard #TODO: modify for combined bombardment
-		if @battleships >= 0
+		if @battleships > 0
 			return true
 		else
 			return false
@@ -124,10 +129,12 @@ public
 	end
 	
 	def probability(hits)
-		if hits == 0
+		if hits <= 0
 			prob = 1
-			if @attack #TODO: take Artillery in to account
-				prob = prob * (1 - (1/6.0))**@infantry
+			
+			if @attack
+				prob = prob * (1 - (2/6.0))**@pairs
+				prob = prob * (1 - (1/6.0))**(@infantry - @pairs)
 			else
 				prob = prob * (1 - (2/6.0))**@infantry
 			end
@@ -159,12 +166,19 @@ public
 			return 0
 		else
 			prob = 0
-			if @infantry > 0 #TODO: take Artillery in to account
+
+			if@infantry > 0 #TODO: take Artillery in to account
 				temparmy = self.dup
 				temparmy.infantry = temparmy.infantry - 1
 				if @attack
-					prob = prob + (@infantry/self.size.to_f) * (1/6.0) * temparmy.probability(hits - 1)
-					prob = prob + (@infantry/self.size.to_f) * (1 - (1/6.0)) * temparmy.probability(hits)
+					if pairs > 0
+						temparmy.pairs = temparmy.pairs - 1
+						prob = prob + (@infantry/self.size.to_f) * (2/6.0) * temparmy.probability(hits - 1)
+						prob = prob + (@infantry/self.size.to_f) * (2 - (1/6.0)) * temparmy.probability(hits)
+					else
+						prob = prob + (@infantry/self.size.to_f) * (1/6.0) * temparmy.probability(hits - 1)
+						prob = prob + (@infantry/self.size.to_f) * (1 - (1/6.0)) * temparmy.probability(hits)										
+					end
 				else
 					prob = prob + (@infantry/self.size.to_f) * (2/6.0) * temparmy.probability(hits - 1)
 					prob = prob + (@infantry/self.size.to_f) * (1 - (2/6.0)) * temparmy.probability(hits)
@@ -176,6 +190,7 @@ public
 				prob = prob + (@artillery/self.size.to_f) * (2/6.0) * temparmy.probability(hits - 1)				
 				prob = prob + (@artillery/self.size.to_f) * (1 - (2/6.0)) * temparmy.probability(hits)				
 			end			
+
 			if @tanks > 0
 				temparmy = self.dup
 				temparmy.tanks = temparmy.tanks - 1
@@ -269,8 +284,6 @@ class Battle
 		@defender = defender.dup
 		@weight = weight
 		@normalize = 1/(1 - @attacker.probability(0)*@defender.probability(0))
-		
-		
 		
 		if aagun
 			@possibilities = Array.new(attacker.num_aircraft) do |x|

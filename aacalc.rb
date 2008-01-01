@@ -1,8 +1,5 @@
 class Unit
-protected
-	attr_writer :attack, :defend, :value, :can_bombard, :lives, :first_strike, :attacks, :aircraft
-public
-	attr_reader :attack, :defend, :value, :can_bombard, :lives, :first_strike, :attacks, :aircraft, :attacking
+	attr_reader :value, :can_bombard, :lives, :first_strike, :attacks, :aircraft, :attacking
 	attr_writer :attacking
 	def initialize(attack, defend, value, can_bombard, lives, first_strike, attacks, aircraft, attacking = true)
 		@attack = attack
@@ -159,23 +156,25 @@ protected
 	end
 
 public
-	def initialize(attacking,units = nil)
+	def initialize(attacking,unpaired,units = nil)
 		@attacking = attacking
 		if units == nil
 			@units = Array.new
 		else
 			@units = Array.new(units.length){|x| units[x].dup}
-			if !attacking
-				@units.each{|unit| unit.attacking = false }
-			else
-				@units.each{|unit| unit.attacking = true }
+			@units.each{|unit| unit.attacking = attacking }
+			if attacking and unpaired
 				self.pair_infantry
 			end
 		end
 	end
 	
+	def add
+	#TODO: impliment me
+	end
+	
 	def dup
-		Army.new(@attacking,Array.new(@units.length){|x| @units[x].dup})
+		Army.new(@attacking,false,@units)
 	end
 	
 	def value
@@ -252,7 +251,7 @@ public
 			1.upto(6) do |x|
 				fleet = bombarders.find_all{|unit| unit.power == x}
 				if fleet.length != 0
-					tempfleet = Army.new(bombarders.reject{|unit| unit == fleet[0]})
+					tempfleet = Army.new(@attacking,false,bombarders.reject{|unit| unit == fleet[0]})
 					prob += (x/6.0)*(fleet.length/max_bombard_hits.to_f) * temp_fleet.bombard_probability(hits - 1)
 					prob += (1 - (x/6.0))*(fleet.length/max_bombard_hits.to_f) * temp_fleet.bombard_probability(hits)
 				end
@@ -276,7 +275,7 @@ public
 			1.upto(6) do |x|
 				group = @units.find_all{|unit| unit.power == x}
 				if group.length != 0
-					temparmy = Army.new(@attacking,@units.reject{|unit| unit == group[0]})
+					temparmy = Army.new(@attacking,false,@units.reject{|unit| unit == group[0]})
 					prob += (x/6.0)*(group.length/max_hits.to_f) * temparmy.probability(hits - 1)
 					prob += (1 - (x/6.0))*(group.length/max_hits.to_f) * temparmy.probability(hits)					
 				end

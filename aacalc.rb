@@ -1,277 +1,294 @@
-class Army
-
+class Unit
 protected
+	attr_writer :attack, :defend, :value, :can_bombard, :lives, :first_strike, :attacks, :aircraft
+public
+	attr_reader :attack, :defend, :value, :can_bombard, :lives, :first_strike, :attacks, :aircraft, :attacking
+	attr_writer :attacking
+	def initialize(attack, defend, value, can_bombard, lives, first_strike, attacks, aircraft, attacking = true)
+		@attack = attack
+		@defend = defend
+		@value = value
+		@can_bombard = can_bombard
+		@lives = lives
+		@first_strike = first_strike
+		@attacks = attacks
+		@aircraft = aircraft
+		@attacking = attacking
+	end
+	def power
+		if @attacking
+			@attack
+		else
+			@defend
+		end
+	end	
+	def prob
+		if @attacking
+			@attack/6.0
+		else
+			@defend/6.0
+		end
+	end
+	def dup
+		Unit.new(@attack, @defend, @value, @can_bombard, @lives, @first_strike, @attacks, @aircraft)
+	end
+	def take_hit
+		@lives = @lives - 1
+	end
+end
 
-	attr_reader :infantry, :tanks, :artillery, :fighters, :bombers, :destroyers, :battleships, :hit_battleships, :carriers, :transports, :subs, :pairs
-	attr_writer :infantry, :tanks, :artillery, :fighters, :bombers, :destroyers, :battleships, :hit_battleships, :carriers, :transports, :subs, :pairs
+class Infantry < Unit
+	def initialize
+		super(1,2,3,false,1,false,1,false)
+	end
+	def artillery_pair
+		@attack = 2
+	end
+	def reset_pair
+		@attack = 1
+	end
+	def dup #because we want to keep the Infantry type
+		temp = Infantry.new
+		temp.attack = @attack
+		return temp
+	end
+end
+
+class Tank < Unit
+	def initialize
+		super(3,3,5,false,1,false,1,false)
+	end
+	def dup
+		Tank.new
+	end
+end
+
+class Artillery < Unit
+	def initialize
+		super(2,2,4,false,1,false,1,false)
+	end
+	def dup #because we want to keep the Artillery type
+		Artillery.new
+	end
+end
+
+class Fighter < Unit
+	def initialize(jet = false)
+		if jet
+			super(3,5,10,false,1,false,1,true)
+		else
+			super(3,4,10,false,1,false,1,true)
+		end
+	end
+	def dup
+		Fighter.new(@defence == 4 ? false : true)
+	end
+end
+
+class Bomber < Unit
+	def initialize(heavy = false)
+		if heavy
+			super(4,1,15,false,1,false,2,true)
+		else
+			super(4,1,15,false,1,false,1,true)
+		end
+	end
+	def dup
+		Bomber.new(@attacks == 1 ? false : true)
+	end
+end
+
+class Destroyer < Unit
+	def initialize(combined_bombardment = false)
+		super(3,3,12,combined_bombardment,1,false,1,false)
+	end
+	def dup
+		Destroyer.new(can_bombard)
+	end
+end
+
+class Battleship < Unit
+	def initialize
+		super(4,4,24,true,2,false,1,false)
+	end
+	def dup
+		Battleship.new
+	end
+end
+
+class Carrier < Unit
+	def initialize
+		super(1,3,16,false,1,false,1,false)
+	end
+	def dup
+		Carrier.new
+	end
+end
+
+class Transport < Unit
+	def initialize
+		super(0,1,8,false,1,false,1,false)
+	end
+	def dup
+		Transport.new
+	end
+end
+
+class Sub < Unit
+	def initialize(sup = false)
+		if sup
+			super(3,2,8,false,1,true,1,false)
+		else
+			super(2,2,8,false,1,true,1,false)
+		end
+	end
+	def dup
+		Sub.new(@attack == 2 ? false : true)
+	end
+end
+
+class Army
+protected
+	def pair_infantry
+		infantry = @units.find_all{|unit| unit.is_a?(Infantry)}
+		infantry.each{|unit| unit.reset_pair}
+		num_artillery = @units.inject(0){|num, unit| num + (unit.is_a?(Artillery) ? 1 : 0)}
+		(num_artillery > infantry.length ? infantry.length : num_artillery).times do |x|
+			infantry[x].artillery_pair
+		end
+	end
 
 public
-
-	def initialize(attack, infantry, tanks, artillery, fighters, bombers, destroyers, battleships, hit_battleships, carriers, transports, subs)
-		@infantry = infantry
-		@tanks = tanks
-		@artillery = artillery
-		@fighters = fighters
-		@bombers = bombers
-		@destroyers = destroyers
-		@battleships = battleships
-		@hit_battleships = hit_battleships
-		@carriers = carriers
-		@transports = transports
-		@subs = subs
-		@attack = attack #true or false
-		if @infantry > @artillery
-			@pairs = @artillery
+	def initialize(attacking,units = nil)
+		@attacking = attacking
+		if units == nil
+			@units = Array.new
 		else
-			@pairs = @infantry
+			@units = Array.new(units.length){|x| units[x].dup}
+			if !attacking
+				@units.each{|unit| unit.attacking = false }
+			else
+				@units.each{|unit| unit.attacking = true }
+				self.pair_infantry
+			end
 		end
 	end
 	
 	def dup
-		Army.new(@attack, @infantry, @tanks, @artillery, @fighters, @bombers, @destroyers, @battleships, @hit_battleships, @carriers, @transports, @subs)
+		Army.new(@attacking,Array.new(@units.length){|x| @units[x].dup})
 	end
 	
 	def value
-		@infantry*3 + @tanks*5 + @artillery*4 + @fighters*10 + @bombers*15 + @destroyers*12 + (@battleships + @hit_battleships)*24 + @carriers*16 + @transports*8 + @subs*8
+		@units.inject(0){|value, unit| value + unit.value}
 	end
 	
 	def size
-		@infantry + @tanks + @artillery + @fighters + @bombers + @destroyers + @battleships + @hit_battleships + @carriers + @transports + @subs
+		@units.length
 	end
 	
 	def max_hits
 		self.size #TODO: modify for heavy bombers
+		#@units.inject(0){|num, unit| num + unit.attacks}
 	end
 	
 	def num_aircraft
-		@fighters + @bombers
+		@units.inject(0){|num, unit| num + (unit.aircraft ? 1 : 0)}
 	end
 	
 	def can_bombard #TODO: modify for combined bombardment
-		if @battleships > 0
-			return true
-		else
-			return false
-		end
+		self.max_bombard_hits > 0
 	end
 	
 	def max_bombard_hits
-		@battleships
+		@units.inject(0){|bombards, unit| bombards + (unit.can_bombard ? 1 : 0)}
 	end
 	
 	def lose(hits)
 		if self.size <= hits
-			@infantry = 0
-			@tanks = 0
-			@artillery = 0
-			@fighters = 0
-			@bombers = 0
-			@destroyers = 0
-			@battleships = 0
-			@hit_battleships = 0
-			@carriers = 0
-			@transports = 0
-			@subs = 0
+			@units = Array.new
 		else	
 			hits.times do
-				if @battleships > 0
-					@battleships = @battleship - 1
-					@hit_battleships = @hit_battleships + 1
-				elsif @infantry > 0
-					@infantry = @infantry - 1
-				elsif @artillery > 0
-					@artillery = @artillery - 1
-				elsif @tanks > 0
-					@tanks = @tanks - 1
-				elsif @transports > 0
-					@transports = @transports - 1
-				elsif @subs > 0
-					@subs = @subs - 1
-				elsif @fighters > 0
-					@fighters = @fighters - 1
-				elsif @destroyers > 0
-					@destroyers = @destroyers - 1
-				elsif @bombers > 0
-					@bombers = @bombers - 1
-				elsif @carriers > 0
-					@carriers = @carriers -1
-				elsif @hit_battleships > 0
-					@hit_battleships = @hit_battleships -1
+				have_life = @units.find_all {|unit| unit.lives > 1}
+				if have_life.length > 0
+					have_life[0].lives = have_life[0].lives - 1 #should work since both have_life and @units have the _same_ objects
+				elsif
+					remove = @units.inject do |lowest,unit|
+						if (unit.value < lowest.value) or ((unit.value == lowest.value) and (unit.power < lowest.power))
+							lowest = unit
+						end
+					end
+					@units.delete(remove)			
 				end
 			end
+			self.pair_infantry
 		end
 		self
 	end
 	
 	def lose_aircraft(hits)
 		if self.num_aircraft <= hits
-			@fighters = 0
-			@bombers = 0
+			@units.delete_if{|unit| unit.aircraft}
 		else
 			hits.times do
-				if @fighters > 0
-					@fighters = @fighters - 1
-				else
-					@bombers = @bombers - 1
+				remove = @units.inject do |lowest,unit|
+					if unit.aircraft
+						if (unit.value < lowest.value) or ((unit.value == lowest.value) and (unit.power < lowest.power))
+							lowest = unit
+						end
+					end
 				end
 			end
 		end
 	end
 	
 	def bombard_probability(hits) #TODO: Special rule for combined bombardment
-		if hits > @battleships
+		bombarders = @units.find_all {|unit| unit.can_bombard}
+		if hits > bombarders.length
 			return 0
 		elsif hits == 0
-			return (1-(4/6.0))**@battleships
+			return bombarders.inject(1){|prob,unit| prob * (1 - unit.prob)}
 		else
-			return ((1-(4/6.0))**hits) * ((4/6.0)**(@battleships - hits))
+			prob = 1
+			1.upto(6) do |x|
+				fleet = bombarders.find_all{|unit| unit.power == x}
+				if fleet.length != 0
+					tempfleet = Army.new(bombarders.reject{|unit| unit == fleet[0]})
+					prob += (x/6.0)*(fleet.length/max_bombard_hits.to_f) * temp_fleet.bombard_probability(hits - 1)
+					prob += (1 - (x/6.0))*(fleet.length/max_bombard_hits.to_f) * temp_fleet.bombard_probability(hits)
+				end
+			end
+			return prob
 		end	
 	end
 	
+	def lose_bombard
+		@units.delete_if{|unit| unit.can_bombard}
+	end
+	
 	def probability(hits)
-		if hits <= 0
-			prob = 1
-			
-			if @attack
-				prob = prob * (1 - (2/6.0))**@pairs
-				prob = prob * (1 - (1/6.0))**(@infantry - @pairs)
-			else
-				prob = prob * (1 - (2/6.0))**@infantry
-			end
-			prob = prob * (1 - (2/6.0))**@artillery
-			prob = prob * (1 - (3/6.0))**@tanks
-			if @attack#TODO: special rule for jet fighters
-				prob = prob * (1 - (3/6.0))**@fighters
-			else
-				prob = prob * (1 - (4/6.0))**@fighters
-			end
-			if @attack #TODO: special rule for heavy bomber
-				prob = prob * (1 - (4/6.0))**@bombers
-			else
-				prob = prob * (1 - (1/6.0))**@bombers
-			end
-			prob = prob * (1 - (3/6.0))**@destroyers
-			prob = prob * (1 - (4/6.0))**(@battleships + @hit_battleships)
-			if @attack
-				prob = prob * (1 - (1/6.0))**@carriers
-			else
-				prob = prob * (1 - (3/6.0))**@carriers
-			end
-			if ! @attack
-				prob = prob * (1 - (1/6.0))**@transports
-			end
-			prob = prob * (1 - (2/6.0))**@subs #TODO: special rule for subs
-		#TODO: modify 'hits > self.size' case for special rules like heavy bombers
-		elsif hits > self.max_hits #includes size == 0 case since hits!=0 or above would have take care of it
+#puts "start", hits, self.max_hits, @units
+		if hits > self.max_hits #includes size == 0 case since hits!=0 or above would have take care of it
 			return 0
+		elsif hits <= 0
+			return @units.inject(1){|prob,unit| prob * (1 - unit.prob)}
 		else
 			prob = 0
-
-			if@infantry > 0 #TODO: take Artillery in to account
-				temparmy = self.dup
-				temparmy.infantry = temparmy.infantry - 1
-				if @attack
-					if pairs > 0
-						temparmy.pairs = temparmy.pairs - 1
-						prob = prob + (@infantry/self.size.to_f) * (2/6.0) * temparmy.probability(hits - 1)
-						prob = prob + (@infantry/self.size.to_f) * (2 - (1/6.0)) * temparmy.probability(hits)
-					else
-						prob = prob + (@infantry/self.size.to_f) * (1/6.0) * temparmy.probability(hits - 1)
-						prob = prob + (@infantry/self.size.to_f) * (1 - (1/6.0)) * temparmy.probability(hits)										
-					end
-				else
-					prob = prob + (@infantry/self.size.to_f) * (2/6.0) * temparmy.probability(hits - 1)
-					prob = prob + (@infantry/self.size.to_f) * (1 - (2/6.0)) * temparmy.probability(hits)
+			1.upto(6) do |x|
+				group = @units.find_all{|unit| unit.power == x}
+				if group.length != 0
+					temparmy = Army.new(@attacking,@units.reject{|unit| unit == group[0]})
+					prob += (x/6.0)*(group.length/max_hits.to_f) * temparmy.probability(hits - 1)
+					prob += (1 - (x/6.0))*(group.length/max_hits.to_f) * temparmy.probability(hits)					
 				end
 			end
-			if @artillery > 0
-				temparmy = self.dup
-				temparmy.artillery = temparmy.artillery - 1
-				prob = prob + (@artillery/self.size.to_f) * (2/6.0) * temparmy.probability(hits - 1)				
-				prob = prob + (@artillery/self.size.to_f) * (1 - (2/6.0)) * temparmy.probability(hits)				
-			end			
-
-			if @tanks > 0
-				temparmy = self.dup
-				temparmy.tanks = temparmy.tanks - 1
-				prob = prob + (@tanks/self.size.to_f) * (3/6.0) * temparmy.probability(hits - 1)				
-				prob = prob + (@tanks/self.size.to_f) * (1 - (3/6.0)) * temparmy.probability(hits)	
-			end			
-			if @fighters > 0 #TODO: special rule for jet fighters
-				temparmy = self.dup
-				temparmy.fighters = temparmy.fighters - 1
-				if @attack
-					prob = prob + (@fighters/self.size.to_f) * (3/6.0) * temparmy.probability(hits - 1)
-					prob = prob + (@fighters/self.size.to_f) * (1 - (3/6.0)) * temparmy.probability(hits)
-				else
-					prob = prob + (@fighters/self.size.to_f) * (4/6.0) * temparmy.probability(hits - 1)
-					prob = prob + (@fighters/self.size.to_f) * (1 - (4/6.0)) * temparmy.probability(hits)
-				end			
-			end		
-			if @bombers > 0 #TODO: special rule for heavy bombers
-				temparmy = self.dup
-				temparmy.bombers = temparmy.bombers - 1
-				if @attack
-					prob = prob + (@bombers/self.size.to_f) * (4/6.0) * temparmy.probability(hits - 1)
-					prob = prob + (@bombers/self.size.to_f) * (1 - (4/6.0)) * temparmy.probability(hits)
-				else
-					prob = prob + (@bombers/self.size.to_f) * (1/6.0) * temparmy.probability(hits - 1)
-					prob = prob + (@bombers/self.size.to_f) * (1 - (1/6.0)) * temparmy.probability(hits)
-				end			
-			end			
-			if @destroyers > 0
-				temparmy = self.dup
-				temparmy.destroyers = temparmy.destroyers - 1
-				prob = prob + (@destroyers/self.size.to_f) * (3/6.0) * temparmy.probability(hits - 1)
-				prob = prob + (@destroyers/self.size.to_f) * (1 - (3/6.0)) * temparmy.probability(hits)		
-			end				
-			if (@battleships + @hit_battleships) > 0
-				temparmy = self.dup
-				if @battleships > 0
-					temparmy.battleships = temparmy.battleships - 1
-				else
-					temparmy.hit_battleships = temparmy.hit_battleships - 1
-				end
-				prob = prob + ((@battleships + @hit_battleships)/self.size.to_f) * (4/6.0) * temparmy.probability(hits - 1)
-				prob = prob + ((@battleships + @hit_battleships)/self.size.to_f) * (1 - (4/6.0)) * temparmy.probability(hits)		
-			end	
-			if @carriers > 0
-				temparmy = self.dup
-				temparmy.carriers = temparmy.carriers - 1
-				if @attack
-					prob = prob + (@carriers/self.size.to_f) * (1/6.0) * temparmy.probability(hits - 1)
-					prob = prob + (@carriers/self.size.to_f) * (1 - (1/6.0)) * temparmy.probability(hits)
-				else
-					prob = prob + (@carriers/self.size.to_f) * (3/6.0) * temparmy.probability(hits - 1)
-					prob = prob + (@carriers/self.size.to_f) * (1 - (3/6.0)) * temparmy.probability(hits)
-				end			
-			end		
-			if @transports > 0
-				temparmy = self.dup
-				temparmy.transports = temparmy.transports - 1
-				if @attack #TODO: simplify this case, something wrong with second prob = statement?
-					prob = prob + (@transports/self.size.to_f) * (0/6.0) * temparmy.probability(hits - 1)
-					prob = prob + (@transports/self.size.to_f) * (1 - (0/6.0)) * temparmy.probability(hits)
-				else
-					prob = prob + (@transports/self.size.to_f) * (1/6.0) * temparmy.probability(hits - 1)
-					prob = prob + (@transports/self.size.to_f) * (1 - (1/6.0)) * temparmy.probability(hits)
-				end			
-			end	
-			if @subs > 0 #TODO: impliment special rule for subs
-				temparmy = self.dup
-				temparmy.subs = temparmy.subs - 1
-				prob = prob + (@subs/self.size.to_f) * (2/6.0) * temparmy.probability(hits - 1)
-				prob = prob + (@subs/self.size.to_f) * (1 - (2/6.0)) * temparmy.probability(hits)	
-			end	
-			
 		end
 		return prob
 	end
 	
 	def testprob
 		prob = 0
-		0.upto(self.size) do |x|
-			prob = prob + self.probability(x)
+		0.upto(self.max_hits) do |x|
+			prob += self.probability(x)
 		end
 		return prob
 	end
@@ -291,7 +308,7 @@ class Battle
 			end
 		elsif @attacker.can_bombard #TODO: make so bombardment only happens with amphibious
 			@possibilities = Array.new(attacker.max_bombard_hits) do |x|
-				Battle.new(attacker.lose_ships,defender.lose(x),false, attacker.bombard_probability(x))
+				Battle.new(attacker.lose_bombard,defender.lose(x),false, attacker.bombard_probability(x))
 			end
 		elsif (attacker.size != 0) and (defender.size != 0)
 			@possibilities = Array.new(attacker.max_hits + 1) do |x|
@@ -304,7 +321,7 @@ class Battle
 				end
 			end
 			@possibilities.flatten! #@possibilities consists of nested arrays, we don't want it that way
-			@possibilities = @possibilities.reject {|item| item == nil} #get rid of the 'nil' item
+			@possibilities.delete(nil) #get rid of the 'nil' item
 		end
 	end
 
@@ -354,8 +371,7 @@ class Battle
 		elsif @defender.size == 0
 			return @attacker.value
 		else
-			(@possibilities.inject(0) {|ev,battle| ev + battle.weight*battle.expected_attacking_army_value}) * @normalize
-		
+			(@possibilities.inject(0) {|ev,battle| ev + battle.weight*battle.expected_attacking_army_value}) * @normalize		
 		end
 	end
 	def expected_defending_army_value

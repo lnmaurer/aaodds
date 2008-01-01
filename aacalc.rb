@@ -209,11 +209,13 @@ public
 			hits.times do
 				have_life = @units.find_all {|unit| unit.lives > 1}
 				if have_life.length > 0
-					have_life[0].lives = have_life[0].lives - 1 #should work since both have_life and @units have the _same_ objects
-				elsif
+					have_life[0].take_hit #should work since both have_life and @units have the _same_ objects
+				else
 					remove = @units.inject do |lowest,unit|
 						if (unit.value < lowest.value) or ((unit.value == lowest.value) and (unit.power < lowest.power))
 							lowest = unit
+						else
+							lowest #inject needs something returned to it
 						end
 					end
 					@units.delete(remove)			
@@ -242,10 +244,10 @@ public
 	
 	def bombard_probability(hits) #TODO: Special rule for combined bombardment
 		bombarders = @units.find_all {|unit| unit.can_bombard}
-		if hits > bombarders.length
-			return 0
-		elsif hits == 0
+		if hits == 0
 			return bombarders.inject(1){|prob,unit| prob * (1 - unit.prob)}
+		elsif hits > bombarders.length
+			return 0
 		else
 			prob = 1
 			1.upto(6) do |x|
@@ -266,10 +268,10 @@ public
 	
 	def probability(hits)
 #puts "start", hits, self.max_hits, @units
-		if hits > self.max_hits #includes size == 0 case since hits!=0 or above would have take care of it
-			return 0
-		elsif hits <= 0
+		if hits <= 0
 			return @units.inject(1){|prob,unit| prob * (1 - unit.prob)}
+		elsif hits > self.max_hits #includes size == 0 case since hits!=0 or above would have take care of it
+			return 0
 		else
 			prob = 0
 			1.upto(6) do |x|
@@ -299,7 +301,12 @@ class Battle
 		@attacker = attacker.dup
 		@defender = defender.dup
 		@weight = weight
-		@normalize = 1/(1 - @attacker.probability(0)*@defender.probability(0))
+#puts "s",@attacker.size,@attacker.probability(0),"m",@defender.size,@defender.probability(0),"e"
+		if (@attacker.size > 0) and (@defender.size > 0)
+			@normalize = 1/(1 - @attacker.probability(0)*@defender.probability(0))
+		else
+			@normalize = 1
+		end
 		
 		if aagun
 			@possibilities = Array.new(attacker.num_aircraft) do |x|
@@ -361,6 +368,10 @@ class Battle
 		else
 			return (@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_mutual_annihilation}) * @normalize
 		end
+	end
+	
+	def testprob
+		return self.prob_attacker_wins + self.prob_defender_wins + self.prob_mutual_annihilation
 	end
 	
 	#TODO: add specail rules for bombardment for next four functions, since ships are removed from attacking army but not lost

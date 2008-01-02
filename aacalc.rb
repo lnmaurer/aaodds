@@ -1,7 +1,7 @@
 class Unit
-	attr_reader :value, :can_bombard, :lives, :first_strike, :attacks, :aircraft, :attacking
+	attr_reader :value, :can_bombard, :lives, :first_strike, :attacks, :attacking
 	attr_writer :attacking
-	def initialize(attack, defend, value, can_bombard, lives, first_strike, attacks, aircraft, attacking = true)
+	def initialize(attack, defend, value, can_bombard, lives, first_strike, attacks, type, attacking = true)
 		@attack = attack
 		@defend = defend
 		@value = value
@@ -9,8 +9,17 @@ class Unit
 		@lives = lives
 		@first_strike = first_strike
 		@attacks = attacks
-		@aircraft = aircraft
+		@type = type
 		@attacking = attacking
+	end
+	def land
+		@type == 0
+	end
+	def sea
+		@type == 1
+	end
+	def air
+		@type == 2
 	end
 	def power
 		if @attacking
@@ -27,7 +36,7 @@ class Unit
 		end
 	end
 	def dup
-		Unit.new(@attack, @defend, @value, @can_bombard, @lives, @first_strike, @attacks, @aircraft)
+		Unit.new(@attack, @defend, @value, @can_bombard, @lives, @first_strike, @attacks, @air)
 	end
 	def take_hit
 		@lives = @lives - 1
@@ -36,7 +45,7 @@ end
 
 class Infantry < Unit
 	def initialize
-		super(1,2,3,false,1,false,1,false)
+		super(1,2,3,false,1,false,1,0)
 	end
 	def artillery_pair
 		@attack = 2
@@ -53,7 +62,7 @@ end
 
 class Tank < Unit
 	def initialize
-		super(3,3,5,false,1,false,1,false)
+		super(3,3,5,false,1,false,1,0)
 	end
 	def dup
 		Tank.new
@@ -62,7 +71,7 @@ end
 
 class Artillery < Unit
 	def initialize
-		super(2,2,4,false,1,false,1,false)
+		super(2,2,4,false,1,false,1,0)
 	end
 	def dup #because we want to keep the Artillery type
 		Artillery.new
@@ -72,9 +81,9 @@ end
 class Fighter < Unit
 	def initialize(jet = false)
 		if jet
-			super(3,5,10,false,1,false,1,true)
+			super(3,5,10,false,1,false,1,2)
 		else
-			super(3,4,10,false,1,false,1,true)
+			super(3,4,10,false,1,false,1,2)
 		end
 	end
 	def dup
@@ -85,9 +94,9 @@ end
 class Bomber < Unit
 	def initialize(heavy = false)
 		if heavy
-			super(4,1,15,false,1,false,2,true)
+			super(4,1,15,false,1,false,2,2)
 		else
-			super(4,1,15,false,1,false,1,true)
+			super(4,1,15,false,1,false,1,2)
 		end
 	end
 	def dup
@@ -97,7 +106,7 @@ end
 
 class Destroyer < Unit
 	def initialize(combined_bombardment = false)
-		super(3,3,12,combined_bombardment,1,false,1,false)
+		super(3,3,12,combined_bombardment,1,false,1,1)
 	end
 	def dup
 		Destroyer.new(can_bombard)
@@ -106,7 +115,7 @@ end
 
 class Battleship < Unit
 	def initialize
-		super(4,4,24,true,2,false,1,false)
+		super(4,4,24,true,2,false,1,1)
 	end
 	def dup
 		Battleship.new
@@ -115,7 +124,7 @@ end
 
 class Carrier < Unit
 	def initialize
-		super(1,3,16,false,1,false,1,false)
+		super(1,3,16,false,1,false,1,1)
 	end
 	def dup
 		Carrier.new
@@ -124,7 +133,7 @@ end
 
 class Transport < Unit
 	def initialize
-		super(0,1,8,false,1,false,1,false)
+		super(0,1,8,false,1,false,1,1)
 	end
 	def dup
 		Transport.new
@@ -134,9 +143,9 @@ end
 class Sub < Unit
 	def initialize(sup = false)
 		if sup
-			super(3,2,8,false,1,true,1,false)
+			super(3,2,8,false,1,true,1,1)
 		else
-			super(2,2,8,false,1,true,1,false)
+			super(2,2,8,false,1,true,1,1)
 		end
 	end
 	def dup
@@ -191,7 +200,7 @@ public
 	end
 	
 	def num_aircraft
-		@units.inject(0){|num, unit| num + (unit.aircraft ? 1 : 0)}
+		@units.inject(0){|num, unit| num + (unit.air ? 1 : 0)}
 	end
 	
 	def can_bombard #TODO: modify for combined bombardment
@@ -213,7 +222,7 @@ public
 				else
 					remove = @units.inject do |lowest,unit|
 						if (unit.value < lowest.value) or ((unit.value == lowest.value) and (unit.power < lowest.power))
-							lowest = unit
+							unit
 						else
 							lowest #inject needs something returned to it
 						end
@@ -228,13 +237,15 @@ public
 	
 	def lose_aircraft(hits)
 		if self.num_aircraft <= hits
-			@units.delete_if{|unit| unit.aircraft}
+			@units.delete_if{|unit| unit.air}
 		else
 			hits.times do
 				remove = @units.inject do |lowest,unit|
-					if unit.aircraft
+					if unit.air
 						if (unit.value < lowest.value) or ((unit.value == lowest.value) and (unit.power < lowest.power))
-							lowest = unit
+							unit
+						else
+							lowest
 						end
 					end
 				end
@@ -244,7 +255,7 @@ public
 	
 	def bombard_probability(hits) #TODO: Special rule for combined bombardment
 		bombarders = @units.find_all {|unit| unit.can_bombard}
-		if hits == 0
+		if hits <= 0
 			return bombarders.inject(1){|prob,unit| prob * (1 - unit.prob)}
 		elsif hits > bombarders.length
 			return 0
@@ -312,7 +323,8 @@ class Battle
 			@possibilities = Array.new(attacker.num_aircraft) do |x|
 				Battle.new(attacker.lose_aircraft(x),defender,false, ((1/6.0)**x)*((5/6.0)**(possibilities.length - x)) )
 			end
-		elsif @attacker.can_bombard #TODO: make so bombardment only happens with amphibious
+		#bombardment happens if there are units that can bombars, and if there are land units
+		elsif @attacker.can_bombard and (@attacker.find{|unit| unit.land} != nil)
 			@possibilities = Array.new(attacker.max_bombard_hits) do |x|
 				Battle.new(attacker.lose_bombard,defender.lose(x),false, attacker.bombard_probability(x))
 			end

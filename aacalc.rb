@@ -163,6 +163,51 @@ protected
 			infantry[x].artillery_pair
 		end
 	end
+	
+	def conditional_loss (hits)
+		num = @units.inject(0){|sum, unit| sum + (yield(unit) ? 1 : 0)}
+		if num <= hits
+			@units.delete_if{|item| yield(item)}
+		else	
+			hits.times do
+				has_life = @units.find {|unit| yield(unit) and (unit.lives > 1)}
+				if has_life != nil
+					has_life.take_hit
+				else
+					remove = @units.inject(@units.find{|unit| yield(unit)}) do |lowest,unit|
+						if yield(unit)
+							if (unit.value < lowest.value) or ((unit.value == lowest.value) and (unit.power < lowest.power))
+								unit
+							else
+								lowest #inject needs something returned to it
+							end
+						end
+					end
+					@units.delete(remove)			
+				end
+			end
+		end
+	end
+
+	def conditional_probability(hits)
+		max_hits = @units.inject(0){|sum, unit| sum + (yield(unit) ? 1 : 0)}
+		if hits <= 0
+			return @units.inject(1){|prob,unit| prob * (1 - unit.prob)}
+		elsif hits > max_hits
+			return 0
+		else
+			prob = 0
+			1.upto(6) do |x|
+				group = @units.find_all{|unit| yield(unit) and (unit.power == x)}
+				if group.length != 0
+					temparmy = Army.new(@attacking,false,@units.reject{|unit| unit == group[0]})
+					prob += (x/6.0)*(group.length/max_hits.to_f) * temparmy.probability(hits - 1)
+					prob += (1 - (x/6.0))*(group.length/max_hits.to_f) * temparmy.probability(hits)					
+				end
+			end
+		end
+		return prob
+	end
 
 public
 	def initialize(attacking,unpaired,units = nil)
@@ -190,111 +235,64 @@ public
 		@units.inject(0){|value, unit| value + unit.value}
 	end
 	
+	def sea_value
+		@units.inject(0){|value, unit| value + (unit.sea ? unit.value : 0)}
+	end
+	
 	def size
 		@units.length
 	end
+	
+	def num_aircraft
+		@units.inject(0){|num, unit| num + (unit.air ? 1 : 0)}
+	end	
 	
 	def max_hits
 		self.size #TODO: modify for heavy bombers
 		#@units.inject(0){|num, unit| num + unit.attacks}
 	end
 	
-	def num_aircraft
-		@units.inject(0){|num, unit| num + (unit.air ? 1 : 0)}
+	def has_land
+		@units.find{|unit| unit.land} != nil
 	end
 	
-	def can_bombard #TODO: modify for combined bombardment
-		self.max_bombard_hits > 0
+	def has_sea
+		@units.find{|unit| unit.sea} != nil
+	end
+
+	def has_air
+		@units.find{|unit| unit.air} != nil
+	end
+	
+	def can_bombard
+		@units.find{|unit| unit.can_bombard} != nil
 	end
 	
 	def max_bombard_hits
 		@units.inject(0){|bombards, unit| bombards + (unit.can_bombard ? 1 : 0)}
 	end
 	
+	def remove_sea
+		@units.delete_if{|unit| unit.sea}
+	end	
+	
 	def lose(hits)
-		if self.size <= hits
-			@units = Array.new
-		else	
-			hits.times do
-				have_life = @units.find_all {|unit| unit.lives > 1}
-				if have_life.length > 0
-					have_life[0].take_hit #should work since both have_life and @units have the _same_ objects
-				else
-					remove = @units.inject do |lowest,unit|
-						if (unit.value < lowest.value) or ((unit.value == lowest.value) and (unit.power < lowest.power))
-							unit
-						else
-							lowest #inject needs something returned to it
-						end
-					end
-					@units.delete(remove)			
-				end
-			end
-			self.pair_infantry
-		end
+		self.conditional_loss(hits) {|unit| true}
+		self.pair_infantry
 		self
 	end
 	
 	def lose_aircraft(hits)
-		if self.num_aircraft <= hits
-			@units.delete_if{|unit| unit.air}
-		else
-			hits.times do
-				remove = @units.inject do |lowest,unit|
-					if unit.air
-						if (unit.value < lowest.value) or ((unit.value == lowest.value) and (unit.power < lowest.power))
-							unit
-						else
-							lowest
-						end
-					end
-				end
-			end
-		end
-	end
-	
-	def bombard_probability(hits) #TODO: Special rule for combined bombardment
-		bombarders = @units.find_all {|unit| unit.can_bombard}
-		if hits <= 0
-			return bombarders.inject(1){|prob,unit| prob * (1 - unit.prob)}
-		elsif hits > bombarders.length
-			return 0
-		else
-			prob = 1
-			1.upto(6) do |x|
-				fleet = bombarders.find_all{|unit| unit.power == x}
-				if fleet.length != 0
-					tempfleet = Army.new(@attacking,false,bombarders.reject{|unit| unit == fleet[0]})
-					prob += (x/6.0)*(fleet.length/max_bombard_hits.to_f) * temp_fleet.bombard_probability(hits - 1)
-					prob += (1 - (x/6.0))*(fleet.length/max_bombard_hits.to_f) * temp_fleet.bombard_probability(hits)
-				end
-			end
-			return prob
-		end	
-	end
-	
-	def lose_bombard
-		@units.delete_if{|unit| unit.can_bombard}
+		self.conditional_loss(hits) {|unit| unit.air}
+		self
 	end
 	
 	def probability(hits)
-#puts "start", hits, self.max_hits, @units
-		if hits <= 0
-			return @units.inject(1){|prob,unit| prob * (1 - unit.prob)}
-		elsif hits > self.max_hits #includes size == 0 case since hits!=0 or above would have take care of it
-			return 0
-		else
-			prob = 0
-			1.upto(6) do |x|
-				group = @units.find_all{|unit| unit.power == x}
-				if group.length != 0
-					temparmy = Army.new(@attacking,false,@units.reject{|unit| unit == group[0]})
-					prob += (x/6.0)*(group.length/max_hits.to_f) * temparmy.probability(hits - 1)
-					prob += (1 - (x/6.0))*(group.length/max_hits.to_f) * temparmy.probability(hits)					
-				end
-			end
-		end
-		return prob
+		self.conditional_probability(hits) {|unit| true}
+	end	
+	
+	def bombard_probability(hits) #TODO: Special rule for combined bombardment
+		self.conditional_probability(hits) {|unit| unit.can_bombard}
 	end
 	
 	def testprob
@@ -319,12 +317,12 @@ class Battle
 			@normalize = 1
 		end
 		
-		if aagun
-			@possibilities = Array.new(attacker.num_aircraft) do |x|
+		if aagun and @attacker.has_air
+			@possibilities = Array.new(attacker.num_aircraft) do |x| #TODO: is the below weight calculation correct? doesn't sum to 1?
 				Battle.new(attacker.lose_aircraft(x),defender,false, ((1/6.0)**x)*((5/6.0)**(possibilities.length - x)) )
 			end
 		#bombardment happens if there are units that can bombars, and if there are land units
-		elsif @attacker.can_bombard and (@attacker.find{|unit| unit.land} != nil)
+		elsif @attacker.can_bombard and @attacker.has_land
 			@possibilities = Array.new(attacker.max_bombard_hits) do |x|
 				Battle.new(attacker.lose_bombard,defender.lose(x),false, attacker.bombard_probability(x))
 			end
@@ -342,10 +340,6 @@ class Battle
 			@possibilities.delete(nil) #get rid of the 'nil' item
 		end
 	end
-
-#the '/(1 - attacker.probability(0)*defender.probability(0))' in the next several functions account
-#for the infinite recursion that could happen if both sides kept on not hitting each other
-	
 
 	def prob_attacker_wins
 		if (@attacker.size != 0) and (@defender.size == 0)
@@ -386,14 +380,17 @@ class Battle
 		return self.prob_attacker_wins + self.prob_defender_wins + self.prob_mutual_annihilation
 	end
 	
-	#TODO: add specail rules for bombardment for next four functions, since ships are removed from attacking army but not lost
 	def expected_attacking_army_value
 		if @attacker.size == 0
 			return 0
 		elsif @defender.size == 0
 			return @attacker.value
 		else
-			(@possibilities.inject(0) {|ev,battle| ev + battle.weight*battle.expected_attacking_army_value}) * @normalize		
+			ex = (@possibilities.inject(0) {|ev,battle| ev + battle.weight*battle.expected_attacking_army_value}) * @normalize
+			if @attacker.can_bombard and @attacker.has_land
+				ex += @attacker.sea_value #since ships are removed after bombardment
+			end
+			return ex
 		end
 	end
 	def expected_defending_army_value

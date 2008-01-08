@@ -55,7 +55,9 @@ class Infantry < Unit
 	end
 	def dup #because we want to keep the Infantry type
 		temp = Infantry.new
-		temp.attack = @attack
+		if @attack == 2
+			temp.artillery_pair
+		end
 		return temp
 	end
 end

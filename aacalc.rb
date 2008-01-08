@@ -1,14 +1,11 @@
 class Unit
 	attr_reader :value, :can_bombard, :lives, :first_strike, :attacks, :attacking
 	attr_writer :attacking
-	def initialize(attack, defend, value, can_bombard, lives, first_strike, attacks, type, attacking = true)
+	def initialize(attack, defend, value, can_bombard, type, attacking = true)
 		@attack = attack
 		@defend = defend
 		@value = value
 		@can_bombard = can_bombard
-		@lives = lives
-		@first_strike = first_strike
-		@attacks = attacks
 		@type = type
 		@attacking = attacking
 	end
@@ -36,16 +33,13 @@ class Unit
 		end
 	end
 	def dup
-		Unit.new(@attack, @defend, @value, @can_bombard, @lives, @first_strike, @attacks, @air)
-	end
-	def take_hit
-		@lives = @lives - 1
+		Unit.new(@attack, @defend, @value, @can_bombard, @type,@attacking)
 	end
 end
 
 class Infantry < Unit
 	def initialize
-		super(1,2,3,false,1,false,1,0)
+		super(1,2,3,false,0)
 	end
 	def artillery_pair
 		@attack = 2
@@ -64,7 +58,7 @@ end
 
 class Tank < Unit
 	def initialize
-		super(3,3,5,false,1,false,1,0)
+		super(3,3,5,false,0)
 	end
 	def dup
 		Tank.new
@@ -73,7 +67,7 @@ end
 
 class Artillery < Unit
 	def initialize
-		super(2,2,4,false,1,false,1,0)
+		super(2,2,4,false,0)
 	end
 	def dup #because we want to keep the Artillery type
 		Artillery.new
@@ -83,9 +77,9 @@ end
 class Fighter < Unit
 	def initialize(jet = false)
 		if jet
-			super(3,5,10,false,1,false,1,2)
+			super(3,5,10,false,2)
 		else
-			super(3,4,10,false,1,false,1,2)
+			super(3,4,10,false,2)
 		end
 	end
 	def dup
@@ -96,9 +90,9 @@ end
 class Bomber < Unit
 	def initialize(heavy = false)
 		if heavy
-			super(4,1,15,false,1,false,2,2)
+			super(4,1,15,false,2)
 		else
-			super(4,1,15,false,1,false,1,2)
+			super(4,1,15,false,2)
 		end
 	end
 	def dup
@@ -108,7 +102,7 @@ end
 
 class Destroyer < Unit
 	def initialize(combined_bombardment = false)
-		super(3,3,12,combined_bombardment,1,false,1,1)
+		super(3,3,12,combined_bombardment,1)
 	end
 	def dup
 		Destroyer.new(can_bombard)
@@ -116,17 +110,22 @@ class Destroyer < Unit
 end
 
 class Battleship < Unit
-	def initialize
-		super(4,4,24,true,2,false,1,1)
+	attr_reader :lives
+	def initialize(lives = 2)
+		@lives = lives
+		super(4,4,24,true,1)
 	end
 	def dup
-		Battleship.new
+		Battleship.new(@lives)
+	end
+	def take_hit
+		@lives = @lives - 1
 	end
 end
 
 class Carrier < Unit
 	def initialize
-		super(1,3,16,false,1,false,1,1)
+		super(1,3,16,false,1)
 	end
 	def dup
 		Carrier.new
@@ -135,7 +134,7 @@ end
 
 class Transport < Unit
 	def initialize
-		super(0,1,8,false,1,false,1,1)
+		super(0,1,8,false,1)
 	end
 	def dup
 		Transport.new
@@ -145,9 +144,9 @@ end
 class Sub < Unit
 	def initialize(sup = false)
 		if sup
-			super(3,2,8,false,1,true,1,1)
+			super(3,2,8,false,1)
 		else
-			super(2,2,8,false,1,true,1,1)
+			super(2,2,8,false,1)
 		end
 	end
 	def dup
@@ -172,7 +171,7 @@ protected
 			@units.delete_if{|item| yield(item)}
 		else	
 			hits.times do
-				has_life = @units.find {|unit| yield(unit) and (unit.lives > 1)}
+				has_life = @units.find {|unit| yield(unit) and unit.is_a?(Battleship) and (unit.lives > 1)}
 				if has_life != nil
 					has_life.take_hit
 				else

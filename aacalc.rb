@@ -33,7 +33,7 @@ class Unit
 		end
 	end
 	def dup
-		Unit.new(@attack, @defend, @value, @can_bombard, @type,@attacking)
+		Unit.new(@attack, @defend, @value, @can_bombard, @type, @attacking)
 	end
 end
 
@@ -88,15 +88,19 @@ class Fighter < Unit
 end
 
 class Bomber < Unit
+	attr_reader :heavy
 	def initialize(heavy = false)
-		if heavy
-			super(4,1,15,false,2)
-		else
-			super(4,1,15,false,2)
-		end
+		@heavy = heavy
+		super(4,1,15,false,2)
 	end
 	def dup
-		Bomber.new(@attacks == 1 ? false : true)
+		Bomber.new(@heavy)
+	end
+	def make_heavy
+		@heavy = true
+	end
+	def make_normal
+		@heavy = false
 	end
 end
 
@@ -249,8 +253,7 @@ public
 	end	
 	
 	def max_hits
-		self.size #TODO: modify for heavy bombers
-		#@units.inject(0){|num, unit| num + unit.attacks}
+		self.size + @units.inject(0){|sum,unit| sum + (unit.is_a?(Bomber) and unit.heavy ? 1 : 0)}
 	end
 	
 	def has_land
@@ -289,7 +292,19 @@ public
 	end
 	
 	def probability(hits)
-		self.conditional_probability(hits) {|unit| true}
+		hbombers = @units.find_all {|unit| unit.is_a?(Bomber) and unit.heavy}
+		if @attacking and hbombers.length > 0
+			hbombers.each do |bomber|
+				bomber.make_normal
+				@units.push(bomber.dup)
+			end
+		end
+		prob = self.conditional_probability(hits) {|unit| true}
+		if @attacking and hbombers.length > 0
+			hbombers.each {|bomber| bomber.make_heavy}
+			@units.delete_if {|unit| unit.is_a?(Bomber) and (not hbombers.include?(unit))}
+		end
+		return prob
 	end	
 	
 	def bombard_probability(hits) #TODO: Special rule for combined bombardment

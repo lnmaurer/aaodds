@@ -363,7 +363,7 @@ class Battle
 		elsif @attacker.size == 0
 			return 0
 		elsif (@attacker.size == 1) and (@defender.size == 1)
-			return (@attacker.probability(1)*@defender.probability(0)) * @normalize
+			return ((@attacker.probability(1)+@attacker.probability(2))*@defender.probability(0)) * @normalize
 		else
 			return (@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_attacker_wins}) * @normalize
 		end
@@ -386,7 +386,7 @@ class Battle
 		elsif ((@attacker.size == 0) and (@defender.size != 0)) or ((@attacker.size != 0) and (@defender.size == 0))
 			return 0
 		elsif (@attacker.size == 1) and (@defender.size == 1)
-			return (@attacker.probability(1)*@defender.probability(1)) * @normalize
+			return ((@attacker.probability(1)+@attacker.probability(2))*@defender.probability(1)) * @normalize
 		else
 			return (@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_mutual_annihilation}) * @normalize
 		end

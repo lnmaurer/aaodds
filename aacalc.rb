@@ -253,7 +253,7 @@ public
 	end	
 	
 	def max_hits
-		self.size + @units.inject(0){|sum,unit| sum + (unit.is_a?(Bomber) and unit.heavy ? 1 : 0)}
+		self.size + @units.inject(0){|sum,unit| sum + ((unit.is_a?(Bomber) and unit.heavy) ? 1 : 0)}
 	end
 	
 	def has_land

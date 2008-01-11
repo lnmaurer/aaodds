@@ -1,3 +1,22 @@
+require 'tk'
+
+def factorial(num)
+	if num <= 0
+		1
+	else
+		(1..num).to_a.inject(1){|product,n| product * n}
+	end
+end
+
+#TODO: there's a faster way to do this... doesn't explicitly use factorial
+def combinations(n,k)
+	factorial(n).to_f / (factorial(k) * factorial(n - k))
+end
+
+def binom (n,k,prob)
+	combinations(n,k) * (prob**k) * ((1 - prob)**(n - k))
+end
+
 class Unit
 	attr_reader :value, :can_bombard, :lives, :first_strike, :attacks, :attacking
 	attr_writer :attacking
@@ -215,6 +234,8 @@ protected
 	end
 
 public
+
+attr_reader :units
 	def initialize(attacking,unpaired,units = nil)
 		@attacking = attacking
 		if units == nil
@@ -228,8 +249,11 @@ public
 		end
 	end
 	
-	def add
-	#TODO: impliment me
+	def add_array(units)
+		units.each{|unit| unit.attacking = attacking }
+		@units.concat(units)
+		self.pair_infantry
+		self
 	end
 	
 	def dup
@@ -326,23 +350,25 @@ class Battle
 		@attacker = attacker.dup
 		@defender = defender.dup
 		@weight = weight
-#puts "s",@attacker.size,@attacker.probability(0),"m",@defender.size,@defender.probability(0),"e"
+		@fireAA = aagun and @attacker.has_air
 		if (@attacker.size > 0) and (@defender.size > 0)
 			@normalize = 1/(1 - @attacker.probability(0)*@defender.probability(0))
 		else
-			@normalize = 1
+			@normalize = 1.0
 		end
 		
-		if aagun and @attacker.has_air
-			@possibilities = Array.new(attacker.num_aircraft) do |x| #TODO: is the below weight calculation correct? doesn't sum to 1?
-				Battle.new(attacker.lose_aircraft(x),defender,false, ((1/6.0)**x)*((5/6.0)**(possibilities.length - x)) )
+		if @fireAA
+			@possibilities = Array.new(attacker.num_aircraft + 1) do |x| #TODO: is the below weight calculation correct?
+				Battle.new(attacker.dup.lose_aircraft(x),defender.dup,false, binom(attacker.num_aircraft,x, 1 / 6.0))
+				#combinations(attacker.num_aircraft,x) * ((1 / 6.0)**x) * ((5 / 6.0)**(attacker.num_aircraft - x)) )
 			end
+			@normalize = 1.0 #if we're firing AA, then the probabilities add to 1, so there's no need to normalize
 		#bombardment happens if there are units that can bombars, and if there are land units
 		elsif @attacker.can_bombard and @attacker.has_land
 			@possibilities = Array.new(attacker.max_bombard_hits) do |x|
-				Battle.new(attacker.lose_bombard,defender.lose(x),false, attacker.bombard_probability(x))
+				Battle.new(attacker.dup.remove_sea,defender.dup.lose(x),false, attacker.bombard_probability(x))
 			end
-		elsif (attacker.size != 0) and (defender.size != 0)
+		elsif (attacker.size != 0) and (defender.size != 0) #TODO: change to size > 1 ?
 			@possibilities = Array.new(attacker.max_hits + 1) do |x|
 				Array.new(defender.max_hits + 1) do |y|
 					if (x == 0) and (y == 0)
@@ -362,7 +388,7 @@ class Battle
 			return 1
 		elsif @attacker.size == 0
 			return 0
-		elsif (@attacker.size == 1) and (@defender.size == 1)
+		elsif (@attacker.size == 1) and (@defender.size == 1) and (not @fireAA)
 			return ((@attacker.probability(1)+@attacker.probability(2))*@defender.probability(0)) * @normalize
 		else
 			return (@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_attacker_wins}) * @normalize
@@ -374,7 +400,8 @@ class Battle
 			return 1
 		elsif @defender.size == 0
 			return 0
-		elsif (@attacker.size == 1) and (@defender.size == 1)
+		elsif (@attacker.size == 1) and (@defender.size == 1) and (not @fireAA)
+#if aa guns fired, then there are multiple options even though the battle might have only one unit per side
 			return (@attacker.probability(0)*@defender.probability(1)) * @normalize
 		else
 			return (@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_defender_wins}) * @normalize
@@ -385,7 +412,8 @@ class Battle
 			return 1
 		elsif ((@attacker.size == 0) and (@defender.size != 0)) or ((@attacker.size != 0) and (@defender.size == 0))
 			return 0
-		elsif (@attacker.size == 1) and (@defender.size == 1)
+		elsif (@attacker.size == 1) and (@defender.size == 1) and (not @aagun)
+#if aa guns fired, then there are multiple options even though the battle might have only one unit per side
 			return ((@attacker.probability(1)+@attacker.probability(2))*@defender.probability(1)) * @normalize
 		else
 			return (@possibilities.inject(0) {|prob, battle| prob + battle.weight*battle.prob_mutual_annihilation}) * @normalize
@@ -426,3 +454,103 @@ class Battle
 		@defender.value - self.expected_defending_army_value
 	end
 end
+
+class BattleCalc
+	def initialize
+		@root = TkRoot.new() {title 'Battle Calculator'}
+
+		TkLabel.new(@root, 'text'=>"AA gun").grid('column'=>0,'row'=>0, 'sticky'=>'w')
+		@aaGun = TkCheckButton.new(@root).grid('column'=>1,'row'=> 0, 'sticky'=>'w', 'padx'=>5)
+		TkLabel.new(@root, 'text'=>"Hv. Bombers").grid('column'=>2,'row'=>0, 'sticky'=>'w')
+		@heavyBombers = TkCheckButton.new(@root).grid('column'=>3,'row'=> 0, 'sticky'=>'w', 'padx'=>5)
+		TkLabel.new(@root, 'text'=>"Comb. Bom.").grid('column'=>0,'row'=>1, 'sticky'=>'w')
+		@combinedBombardment = TkCheckButton.new(@root).grid('column'=>1,'row'=> 1, 'sticky'=>'w', 'padx'=>5)
+		TkLabel.new(@root, 'text'=>"Jets").grid('column'=>2,'row'=>1, 'sticky'=>'w')
+		@jets = TkCheckButton.new(@root).grid('column'=>3,'row'=> 1, 'sticky'=>'w', 'padx'=>5)
+		TkLabel.new(@root, 'text'=>"Super Subs").grid('column'=>0,'row'=>2, 'sticky'=>'w')
+		@superSubs = TkCheckButton.new(@root).grid('column'=>1,'row'=> 2, 'sticky'=>'w', 'padx'=>5)
+
+
+		unitStartRow = 4
+		TkLabel.new(@root, 'text'=>"Attacker").grid('column'=>0,'row'=>unitStartRow - 1, 'sticky'=>'w')
+		TkLabel.new(@root, 'text'=>"Defender").grid('column'=>2,'row'=>unitStartRow - 1, 'sticky'=>'w')		
+		alabels = ['Infantry', 'Tank', 'Artillery', 'Fighter', 'Bomber','Destroyer','Battleship','Carrier','Transport','Sub'].collect { |label|
+			TkLabel.new(@root, 'text'=>label)}
+		dlabels = ['Infantry', 'Tank', 'Artillery', 'Fighter', 'Bomber','Destroyer','Battleship','Carrier','Transport','Sub'].collect { |label|
+			TkLabel.new(@root, 'text'=>label)}
+		alabels.each_index { |i| alabels[i].grid('column'=>0,'row'=>i + unitStartRow, 'sticky'=>'w')}
+		dlabels.each_index { |i| dlabels[i].grid('column'=>2,'row'=>i + unitStartRow, 'sticky'=>'w')}
+		num_units = (0..20).to_a
+		@aunits = Array.new(10) {TkVariable.new()}
+		aunitOptionMenus = Array.new(10) {|i| TkOptionMenubutton.new(@root, @aunits[i], *num_units) {width   1}.grid('column'=>1, 'row'=>i + unitStartRow,'sticky'=>'w', 'padx'=>5)}
+		@dunits = Array.new(10) {TkVariable.new()}
+		dunitOptionMenus = Array.new(10) {|i| TkOptionMenubutton.new(@root, @dunits[i], *num_units) {width   1}.grid('column'=>3, 'row'=>i + unitStartRow,'sticky'=>'w', 'padx'=>5)}
+	
+		calc = proc {self.doBattle}	
+		TkButton.new(@root) {
+			text    'Clalculate'
+			command calc
+		}.grid('column'=>1, 'row'=>10 + unitStartRow,'sticky'=>'w', 'padx'=>5)
+
+		TkLabel.new(@root, 'text'=>"Attacker wins").grid('column'=>0,'row'=> 11 + unitStartRow, 'sticky'=>'w')
+		@attackerProb = TkVariable.new()
+		attackerProbDisp = TkEntry.new(@root) {
+			width 30
+			relief  'sunken'
+		}.grid('column'=>1,'row'=> 11 + unitStartRow, 'sticky'=>'w', 'padx'=>5)
+		attackerProbDisp.textvariable(@attackerProb)
+
+
+		TkLabel.new(@root, 'text'=>"Defender wins").grid('column'=>0,'row'=> 12 + unitStartRow, 'sticky'=>'w')
+		@defenderProb = TkVariable.new()
+		defenderProbDisp = TkEntry.new(@root) {
+			width 30
+			relief  'sunken'
+		}.grid('column'=>1,'row'=> 12 + unitStartRow, 'sticky'=>'w', 'padx'=>5)
+		defenderProbDisp.textvariable(@defenderProb)
+
+		TkLabel.new(@root, 'text'=>"Mutual annihilation").grid('column'=>0,'row'=> 13 + unitStartRow, 'sticky'=>'w')
+		@annihilationProb = TkVariable.new()
+		annihilationProbDisp = TkEntry.new(@root) {
+			width 30
+			relief  'sunken'
+		}.grid('column'=>1,'row'=> 13 + unitStartRow, 'sticky'=>'w', 'padx'=>5)
+		annihilationProbDisp.textvariable(@annihilationProb)
+	end
+	def doBattle
+		attackers = Array.new
+		defenders = Array.new
+
+		@aunits[0].to_i.times {attackers.push(Infantry.new)}
+		@aunits[1].to_i.times {attackers.push(Tank.new)}
+		@aunits[2].to_i.times {attackers.push(Artillery.new)}
+		@aunits[3].to_i.times {attackers.push(Fighter.new)}
+		@aunits[4].to_i.times {attackers.push(Bomber.new)}
+		@aunits[5].to_i.times {attackers.push(Destroyer.new)}
+		@aunits[6].to_i.times {attackers.push(Battleship.new)}
+		@aunits[7].to_i.times {attackers.push(Carrier.new)}
+		@aunits[8].to_i.times {attackers.push(Transport.new)}
+		@aunits[9].to_i.times {attackers.push(Sub.new)}
+
+		@dunits[0].to_i.times {defenders.push(Infantry.new)}
+		@dunits[1].to_i.times {defenders.push(Tank.new)}
+		@dunits[2].to_i.times {defenders.push(Artillery.new)}
+		@dunits[3].to_i.times {defenders.push(Fighter.new)}
+		@dunits[4].to_i.times {defenders.push(Bomber.new)}
+		@dunits[5].to_i.times {defenders.push(Destroyer.new)}
+		@dunits[6].to_i.times {defenders.push(Battleship.new)}
+		@dunits[7].to_i.times {defenders.push(Carrier.new)}
+		@dunits[8].to_i.times {defenders.push(Transport.new)}
+		@dunits[9].to_i.times {defenders.push(Sub.new)}
+
+		aarmy = Army.new(true,true,attackers)
+		darmy = Army.new(false,true,defenders)
+		@battle = Battle.new(aarmy,darmy,@aaGun.get_value == '1')
+		@attackerProb.value = @battle.prob_attacker_wins.to_s
+		@defenderProb.value = @battle.prob_defender_wins.to_s
+		@annihilationProb.value = @battle.prob_mutual_annihilation.to_s
+	end
+end
+
+BattleCalc.new
+Tk.mainloop()

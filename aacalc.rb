@@ -407,7 +407,8 @@ class Battle
     @normalize = 1.0
     #if there are battleships, then 1v1 combat is not good
     @battleship = (@attacker.has_battleship or @defender.has_battleship)
-    @can_single = ((not @fireAA) and (not @battleship))
+    #can we calculate one on one combat?
+    @can_single = ((not @fireAA) and (not @battleship) and (@attacker.size == 1) and (@defender.size == 1))
 
 
     if @fireAA
@@ -442,7 +443,7 @@ class Battle
       0
 #if aa guns fired, then there are multiple options even though the battle might have only one unit per side 
 #@attacker.max_hits because one heavy bomber has size 1 but can hit twice
-   elsif (@attacker.max_hits == 1) and (@defender.size == 1) and @can_single
+   elsif @can_single
       @attacker.probability(1) * @defender.probability(0) * @normalize
     else
       @possibilities.inject(0){|prob, battle| prob + battle.weight * battle.prob_attacker_wins} * @normalize
@@ -454,7 +455,7 @@ class Battle
       1
     elsif @defender.size == 0
       0
-    elsif (@attacker.size == 1) and (@defender.size == 1) and @can_single
+    elsif @can_single
       @attacker.probability(0) * @defender.probability(1) * @normalize
     else
       @possibilities.inject(0){|prob, battle| prob + battle.weight * battle.prob_defender_wins} * @normalize
@@ -465,7 +466,7 @@ class Battle
       1
     elsif ((@attacker.size == 0) and (@defender.size != 0)) or ((@attacker.size != 0) and (@defender.size == 0))
       0
-    elsif (@attacker.max_hits == 1) and (@defender.size == 1) and @can_single
+    elsif @can_single
       @attacker.probability(1) * @defender.probability(1) * @normalize
     else
       @possibilities.inject(0){|prob, battle| prob + battle.weight * battle.prob_mutual_annihilation} * @normalize

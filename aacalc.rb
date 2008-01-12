@@ -52,7 +52,7 @@ class Counter
 end
 
 class Unit
-  attr_reader :value, :can_bombard, :lives, :first_strike, :attacks, :attacking
+  attr_reader :value, :can_bombard, :lives, :first_strike, :attacking, :attack, :defend
   attr_writer :attacking
   def initialize(attack, defend, value, can_bombard, type, attacking=true)
     @attack = attack
@@ -88,6 +88,9 @@ class Unit
   def dup
     Unit.new(@attack, @defend, @value, @can_bombard, @type, @attacking)
   end
+  def ==(other)
+    (self.class == other.class) and (attacking == other.attacking)
+  end
 end
 
 class Infantry < Unit
@@ -106,6 +109,9 @@ class Infantry < Unit
       temp.artillery_pair
     end
     return temp
+  end
+  def ==(other)
+    super(other) and (@attack == other.attack)
   end
 end
 
@@ -138,6 +144,9 @@ class Fighter < Unit
   def dup
     Fighter.new(@defend == 5)
   end
+  def ==(other)
+    super(other) and (@defend == other.defend)
+  end
 end
 
 class Bomber < Unit
@@ -155,6 +164,9 @@ class Bomber < Unit
   def make_normal
     @heavy = false
   end
+  def ==(other)
+    super(other) and (@heavy == other.heavy)
+  end
 end
 
 class Destroyer < Unit
@@ -163,6 +175,9 @@ class Destroyer < Unit
   end
   def dup
     Destroyer.new(@can_bombard)
+  end
+  def ==(other)
+    super(other) and (@can_bombard == other.can_bombard)
   end
 end
 
@@ -179,6 +194,9 @@ class Battleship < Unit
   end
   def take_hit
     @lives = @lives - 1
+  end
+  def ==(other)
+    super(other) and (@lives == other.lives)
   end
 end
 
@@ -210,6 +228,9 @@ class Sub < Unit
   end
   def dup
     Sub.new(@attack == 2 ? false : true)
+  end
+  def ==(other)
+    super(other) and (@attack == other.attack)
   end
 end
 
@@ -409,7 +430,6 @@ class Battle
     @battleship = (@attacker.has_battleship or @defender.has_battleship)
     #can we calculate one on one combat?
     @can_single = ((not @fireAA) and (not @battleship) and (@attacker.size == 1) and (@defender.size == 1))
-
 
     if @fireAA
       @possibilities = Array.new(attacker.num_aircraft + 1) do |x|
@@ -631,5 +651,7 @@ class BattleGUI
   end
 end
 
-BattleGUI.new
-Tk.mainloop()
+if __FILE__ == $0
+  BattleGUI.new
+  Tk.mainloop()
+end

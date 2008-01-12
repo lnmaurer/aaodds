@@ -426,7 +426,7 @@ class Battle
 			return 1
 		elsif ((@attacker.size == 0) and (@defender.size != 0)) or ((@attacker.size != 0) and (@defender.size == 0))
 			return 0
-		elsif (@attacker.size == 1) and (@defender.size == 1) and (not @aagun)
+		elsif (@attacker.size == 1) and (@defender.size == 1) and (not @fireAA)
 #if aa guns fired, then there are multiple options even though the battle might have only one unit per side
 			return ((@attacker.probability(1)+@attacker.probability(2))*@defender.probability(1)) * @normalize
 		else

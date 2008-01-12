@@ -236,6 +236,8 @@ end
 
 class Army
 protected
+  attr_reader :units
+
   def pair_infantry
     infantry = @units.find_all{|unit| unit.is_a?(Infantry)}
     infantry.each{|unit| unit.reset_pair}
@@ -260,8 +262,8 @@ protected
             lowest #inject needs something returned to it
           end
         end
-        units.delete(remove)
-        @units.delete(remove)
+        units.delete_if{|unit| unit.object_id == remove.object_id}
+        @units.delete_if{|unit| unit.object_id == remove.object_id}
       end
     end
   end
@@ -278,7 +280,7 @@ protected
         group = units.find_all{|unit| unit.power == x}
         if group.length != 0
           nunits = Array.new
-          units.each{|unit| nunits.push(unit) if unit != group[0]}
+          units.each{|unit| nunits.push(unit) if unit.object_id != group[0].object_id}
           temparmy = Army.new(@attacking,false,nunits)
           max_hits = conditional_max_hits{|unit| yield(unit)}.to_f
 #temparmy already only has units that satisfy the condition, so we can have {|unit| true}
@@ -307,8 +309,6 @@ protected
   end
 
 public
-
-attr_reader :units #for debugging only!
   def initialize(attacking,unpaired,units=nil)
     @attacking = attacking
     if units == nil
@@ -320,6 +320,23 @@ attr_reader :units #for debugging only!
         self.pair_infantry
       end
     end
+  end
+
+  def ==(other)
+     if self.class == other.class
+       temp = other.units.dup
+       count = 0
+       @units.each do |unit|
+         i = temp.index(unit) #TODO: use object_id instead
+         if i != nil
+           temp.delete_at(i)
+           count += 1
+         end
+       end
+       (temp.size == 0) and (count == @units.size)
+     else
+       false
+     end 
   end
   
   def dup
@@ -416,7 +433,9 @@ attr_reader :units #for debugging only!
 end
 
 class Battle
-  attr_reader :weight
+protected
+  attr_reader :attacker, :defender, :weight
+public
   def initialize(attacker, defender, aagun, weight = 1.0)
     @attacker = attacker.dup
     @defender = defender.dup

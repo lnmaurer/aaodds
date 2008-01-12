@@ -236,7 +236,7 @@ end
 
 class Army
 protected
-  attr_reader :units
+#  attr_reader :units
 
   def pair_infantry
     infantry = @units.find_all{|unit| unit.is_a?(Infantry)}
@@ -309,6 +309,7 @@ protected
   end
 
 public
+attr_reader :units #for debuging only!
   def initialize(attacking,unpaired,units=nil)
     @attacking = attacking
     if units == nil
@@ -434,12 +435,53 @@ end
 
 class Battle
 protected
-  attr_reader :attacker, :defender, :weight
+  attr_reader :attacker, :defender, :aagun
+  @@battles = Array.new
+  def ==(other)
+    (self.object_id == other.object_id) and (@attacker == other.attacker) and (@defender == other.defender) and (@aagun == other.aagun)
+  end
+ 
+  def same_as(a,d)
+    (@attacker == a) and (@defender == d)
+  end
+
+  def add_weight(id, weight)
+if @weights[id] != nil
+puts "weird", id, weight, @weights[id]
+end
+    @weights[id] = weight
+    self
+  end
+
+  def weight(id)
+    @weights[id]
+  end
+
+  def find_or_add(a, d, weight)
+    found_or_new = @@battles.find{|battle| battle.same_as(a,d)}
+    if found_or_new == nil
+      found_or_new = Battle.new(a,d)
+      @@battles.push(found_or_new)
+    end
+if found_or_new.weight(self.object_id) != nil
+puts "a"
+  a.units.each{|unit| puts unit}
+puts "d"
+  d.units.each{|unit| puts unit}
+puts "oa"
+  found_or_new.attacker.units.each{|unit| puts unit}
+puts "od"
+  found_or_new.defender.units.each{|unit| puts unit}
+end
+    found_or_new.add_weight(self.object_id, weight)
+  end
+
 public
-  def initialize(attacker, defender, aagun, weight = 1.0)
+  def initialize(attacker, defender, aagun = false)
+    @weights = Hash.new
     @attacker = attacker.dup
     @defender = defender.dup
-    @weight = weight
+    @aagun = aagun
     @fireAA = (aagun and @attacker.has_air)
     #bombardment happens if there are units that can bombars, and if there are land units
     @bombard = (@attacker.can_bombard and @attacker.has_land)
@@ -452,12 +494,12 @@ public
 
     if @fireAA
       @possibilities = Array.new(attacker.num_aircraft + 1) do |x|
-        Battle.new(attacker.dup.lose_aircraft(x),defender.dup,false, binom(attacker.num_aircraft,x, 1 / 6.0))
+#        Battle.new(attacker.dup.lose_aircraft(x),defender.dup,false, binom(attacker.num_aircraft,x, 1 / 6.0))
+        find_or_add(attacker.dup.lose_aircraft(x),defender.dup, binom(attacker.num_aircraft,x, 1 / 6.0))
       end
-
     elsif @bombard
       @possibilities = Array.new(attacker.max_bombard_hits + 1) do |x|
-        Battle.new(attacker.dup.remove_sea,defender.dup.lose(x),false, attacker.bombard_probability(x))
+        find_or_add(attacker.dup.remove_sea,defender.dup.lose(x), attacker.bombard_probability(x))
       end
     elsif (attacker.size > 0) and (defender.size > 0)
       @possibilities = Array.new(attacker.max_hits + 1) do |x|
@@ -465,13 +507,16 @@ public
           if (x == 0) and (y == 0)
             nil #to prevent infinite recursion
           else
-            Battle.new(attacker.dup.lose(y), defender.dup.lose(x), false, attacker.probability(x)*defender.probability(y))
+            find_or_add(attacker.dup.lose(y), defender.dup.lose(x), attacker.probability(x)*defender.probability(y))
           end
         end
       end
       @possibilities.flatten! #@possibilities consists of nested arrays, we don't want it that way
       @possibilities.delete(nil) #get rid of the 'nil' item
       @normalize = 1 / (1 - @attacker.probability(0)*@defender.probability(0))
+
+#puts "weights"
+#@possibilities.each{|battle| puts battle.weight(self.object_id) }
     end
   end
 
@@ -485,7 +530,7 @@ public
    elsif @can_single
       @attacker.probability(1) * @defender.probability(0) * @normalize
     else
-      @possibilities.inject(0){|prob, battle| prob + battle.weight * battle.prob_attacker_wins} * @normalize
+      @possibilities.inject(0){|prob, battle| prob + battle.weight(self.object_id) * battle.prob_attacker_wins} * @normalize
     end
   end
   
@@ -497,7 +542,7 @@ public
     elsif @can_single
       @attacker.probability(0) * @defender.probability(1) * @normalize
     else
-      @possibilities.inject(0){|prob, battle| prob + battle.weight * battle.prob_defender_wins} * @normalize
+      @possibilities.inject(0){|prob, battle| prob + battle.weight(self.object_id) * battle.prob_defender_wins} * @normalize
     end  
   end
   def prob_mutual_annihilation
@@ -508,7 +553,7 @@ public
     elsif @can_single
       @attacker.probability(1) * @defender.probability(1) * @normalize
     else
-      @possibilities.inject(0){|prob, battle| prob + battle.weight * battle.prob_mutual_annihilation} * @normalize
+      @possibilities.inject(0){|prob, battle| prob + battle.weight(self.object_id) * battle.prob_mutual_annihilation} * @normalize
     end
   end
   
@@ -522,7 +567,7 @@ public
     elsif @defender.size == 0
       @attacker.value
     else
-      ex = @possibilities.inject(0){|ev,battle| ev + battle.weight * battle.expected_attacking_army_value} * @normalize
+      ex = @possibilities.inject(0){|ev,battle| ev + battle.weight(self.object_id) * battle.expected_attacking_army_value} * @normalize
       if @bombard
         ex += @attacker.sea_value #since ships are removed after bombardment
       end
@@ -535,7 +580,7 @@ public
     elsif @attacker.size == 0
       @defender.value
     else
-      @possibilities.inject(0){|ev,battle| ev + battle.weight*battle.expected_defending_army_value} * @normalize
+      @possibilities.inject(0){|ev,battle| ev + battle.weight(self.object_id)*battle.expected_defending_army_value} * @normalize
     end
   end
 

@@ -168,12 +168,14 @@ end
 
 class Battleship < Unit
   attr_reader :lives
-  def initialize(lives = 2)
-    @lives = lives
+  def initialize
+    @lives = 2
     super(4,4,24,true,1)
   end
   def dup
-    Battleship.new(@lives)
+    temp = Battleship.new
+    temp.take_hit if @lives == 1
+    temp
   end
   def take_hit
     @lives = @lives - 1
@@ -222,24 +224,23 @@ protected
   
   def conditional_loss (hits)
     units = @units.find_all{|unit| yield(unit)}
-    if hits >= (units.size + units.inject(0){|sum,unit| sum + (unit.is_a?(Battleship) ? unit.lives - 1 : 0)})
+    battle_ships_with_lives = units.find_all{|unit| unit.is_a?(Battleship) and (unit.lives > 1)}
+    if hits >= (units.size + battle_ships_with_lives.size)
       @units.delete_if{|item| yield(item)}
     else
-      hits.times do
-        has_life = units.find {|unit| unit.is_a?(Battleship) and (unit.lives > 1)}
-        if has_life != nil
-          has_life.take_hit
-        else
-          remove = units.inject do |lowest,unit|
-            if (unit.value < lowest.value) or ((unit.value == lowest.value) and (unit.power < lowest.power))
-              unit
-            else
-              lowest #inject needs something returned to it
-            end
+      min(hits,battle_ships_with_lives.size).times do |x|
+	battle_ships_with_lives[x].take_hit
+      end
+      (hits - min(hits,battle_ships_with_lives.size)).times do
+        remove = units.inject do |lowest,unit|
+          if (unit.value < lowest.value) or ((unit.value == lowest.value) and (unit.power < lowest.power))
+            unit
+          else
+            lowest #inject needs something returned to it
           end
-          units.delete(remove)
-          @units.delete(remove)
         end
+        units.delete(remove)
+        @units.delete(remove)
       end
     end
   end
@@ -300,13 +301,6 @@ attr_reader :units #for debugging only!
     end
   end
   
-  def add_array(units)
-    units.each{|unit| unit.attacking = attacking }
-    @units.concat(units)
-    self.pair_infantry
-    self
-  end
-  
   def dup
     Army.new(@attacking,false,Array.new(units.length){|x| units[x].dup})
   end
@@ -346,7 +340,7 @@ attr_reader :units #for debugging only!
   def has_battleship
     @units.find{|unit| unit.is_a?(Battleship)} != nil
   end
-  
+
   def can_bombard
     @units.find{|unit| unit.can_bombard} != nil
   end

@@ -128,7 +128,7 @@ class Destroyer < Unit
 		super(3,3,12,combined_bombardment,1)
 	end
 	def dup
-		Destroyer.new(can_bombard)
+		Destroyer.new(@can_bombard)
 	end
 end
 
@@ -214,28 +214,41 @@ protected
 	end
 
 	def conditional_probability(hits)
-		max_hits = @units.inject(0){|sum, unit| sum + (yield(unit) ? 1 : 0)}
+		units = @units.find_all{|unit| yield(unit)}
 		if hits <= 0
-			return @units.inject(1){|prob,unit| prob * (1 - unit.prob)}
-		elsif hits > max_hits
+			return units.inject(1){|prob,unit| prob * (1 - unit.prob)}
+		elsif hits > units.size
 			return 0
 		else
 			prob = 0
 			1.upto(6) do |x|
-				group = @units.find_all{|unit| yield(unit) and (unit.power == x)}
+				group = units.find_all{|unit| unit.power == x}
 				if group.length != 0
-					temparmy = Army.new(@attacking,false,@units.reject{|unit| unit == group[0]})
-					prob += (x/6.0)*(group.length/max_hits.to_f) * temparmy.probability(hits - 1)
-					prob += (1 - (x/6.0))*(group.length/max_hits.to_f) * temparmy.probability(hits)					
+					temparmy = Army.new(@attacking,false,units.reject{|unit| unit == group[0]})
+#temparmy already only has units that satisfy the condition, so we can have {|unit| true}
+					prob += (x / 6.0)*(group.length / conditional_max_hits{|unit| yield(unit)}.to_f) * temparmy.conditional_probability(hits - 1) {|unit| true}
+					prob += (1 - (x / 6.0))*(group.length / conditional_max_hits{|unit| yield(unit)}.to_f) * temparmy.conditional_probability(hits) {|unit| true}
 				end
 			end
 		end
 		return prob
 	end
 
+	def conditional_max_hits
+		@units.inject(0) do |sum,unit|
+			if yield(unit) and unit.is_a?(Bomber) and unit.heavy
+				sum += 2
+			elsif yield(unit) and (unit.power > 0) #to filter out transports
+				sum += 1
+			else
+				sum
+			end
+		end
+	end
+
 public
 
-attr_reader :units
+attr_reader :units #for debugging only!
 	def initialize(attacking,unpaired,units = nil)
 		@attacking = attacking
 		if units == nil
@@ -277,7 +290,7 @@ attr_reader :units
 	end	
 	
 	def max_hits
-		self.size + @units.inject(0){|sum,unit| sum + ((unit.is_a?(Bomber) and unit.heavy) ? 1 : 0)}
+		self.conditional_max_hits{|unit| true}
 	end
 	
 	def has_land
@@ -297,11 +310,12 @@ attr_reader :units
 	end
 	
 	def max_bombard_hits
-		@units.inject(0){|bombards, unit| bombards + (unit.can_bombard ? 1 : 0)}
+		self.conditional_max_hits{|unit| unit.can_bombard}
 	end
 	
 	def remove_sea
 		@units.delete_if{|unit| unit.sea}
+		self
 	end	
 	
 	def lose(hits)
@@ -364,9 +378,10 @@ class Battle
 			@normalize = 1.0 #if we're firing AA, then the probabilities add to 1, so there's no need to normalize
 		#bombardment happens if there are units that can bombars, and if there are land units
 		elsif @attacker.can_bombard and @attacker.has_land
-			@possibilities = Array.new(attacker.max_bombard_hits) do |x|
+			@possibilities = Array.new(attacker.max_bombard_hits + 1) do |x|
 				Battle.new(attacker.dup.remove_sea,defender.dup.lose(x),false, attacker.bombard_probability(x))
 			end
+			@normalize = 1.0 #bombards are already normazlied
 		elsif (attacker.size != 0) and (defender.size != 0) #TODO: change to size > 1 ?
 			@possibilities = Array.new(attacker.max_hits + 1) do |x|
 				Array.new(defender.max_hits + 1) do |y|

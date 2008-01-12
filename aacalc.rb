@@ -459,15 +459,15 @@ class BattleCalc
 		@root = TkRoot.new() {title 'Battle Calculator'}
 
 		TkLabel.new(@root, 'text'=>"AA gun").grid('column'=>0,'row'=>0, 'sticky'=>'w')
-		@aaGun = TkCheckButton.new(@root).grid('column'=>1,'row'=> 0, 'sticky'=>'w', 'padx'=>5)
+		@aaGun = TkCheckButton.new(@root).grid('column'=>1,'row'=> 0, 'sticky'=>'w')
 		TkLabel.new(@root, 'text'=>"Hv. Bombers").grid('column'=>2,'row'=>0, 'sticky'=>'w')
-		@heavyBombers = TkCheckButton.new(@root).grid('column'=>3,'row'=> 0, 'sticky'=>'w', 'padx'=>5)
+		@heavyBombers = TkCheckButton.new(@root).grid('column'=>3,'row'=> 0, 'sticky'=>'w')
 		TkLabel.new(@root, 'text'=>"Comb. Bom.").grid('column'=>0,'row'=>1, 'sticky'=>'w')
-		@combinedBombardment = TkCheckButton.new(@root).grid('column'=>1,'row'=> 1, 'sticky'=>'w', 'padx'=>5)
+		@combinedBombardment = TkCheckButton.new(@root).grid('column'=>1,'row'=> 1, 'sticky'=>'w')
 		TkLabel.new(@root, 'text'=>"Jets").grid('column'=>2,'row'=>1, 'sticky'=>'w')
-		@jets = TkCheckButton.new(@root).grid('column'=>3,'row'=> 1, 'sticky'=>'w', 'padx'=>5)
+		@jets = TkCheckButton.new(@root).grid('column'=>3,'row'=> 1, 'sticky'=>'w')
 		TkLabel.new(@root, 'text'=>"Super Subs").grid('column'=>0,'row'=>2, 'sticky'=>'w')
-		@superSubs = TkCheckButton.new(@root).grid('column'=>1,'row'=> 2, 'sticky'=>'w', 'padx'=>5)
+		@superSubs = TkCheckButton.new(@root).grid('column'=>1,'row'=> 2, 'sticky'=>'w')
 
 
 		unitStartRow = 4

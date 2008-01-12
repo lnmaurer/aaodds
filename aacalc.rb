@@ -506,6 +506,20 @@ class BattleCalc
 			command calc
 		}.grid('column'=>1, 'row'=>10 + unitStartRow,'sticky'=>'w', 'padx'=>5)
 
+		reset = proc {
+			@aunits.each{|var| var.value = 0}
+			@dunits.each{|var| var.value = 0}
+			@aaGun.set_value('0')
+			@heavyBombers.set_value('0')
+			@combinedBombardment.set_value('0')
+			@jets.set_value('0')
+			@superSubs.set_value('0')
+		}	
+		TkButton.new(@root) {
+			text    'Reset'
+			command reset
+		}.grid('column'=>2, 'row'=>10 + unitStartRow,'sticky'=>'w', 'padx'=>5)
+
 		TkLabel.new(@root, 'text'=>"Attacker wins").grid('column'=>0,'row'=> 11 + unitStartRow, 'sticky'=>'w')
 		@attackerProb = TkVariable.new()
 		attackerProbDisp = TkEntry.new(@root) {
@@ -530,6 +544,14 @@ class BattleCalc
 			relief  'sunken'
 		}.grid('column'=>1,'row'=> 13 + unitStartRow, 'sticky'=>'w', 'padx'=>5)
 		annihilationProbDisp.textvariable(@annihilationProb)
+
+		TkLabel.new(@root, 'text'=>"Sum").grid('column'=>0,'row'=> 14 + unitStartRow, 'sticky'=>'w')
+		@sum = TkVariable.new()
+		sumDisp = TkEntry.new(@root) {
+			width 30
+			relief  'sunken'
+		}.grid('column'=>1,'row'=> 14 + unitStartRow, 'sticky'=>'w', 'padx'=>5)
+		sumDisp.textvariable(@sum)
 	end
 	def doBattle
 		attackers = Array.new
@@ -563,6 +585,7 @@ class BattleCalc
 		@attackerProb.value = @battle.prob_attacker_wins.to_s
 		@defenderProb.value = @battle.prob_defender_wins.to_s
 		@annihilationProb.value = @battle.prob_mutual_annihilation.to_s
+		@sum.value = @battle.testprob
 	end
 end
 

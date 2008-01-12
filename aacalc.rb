@@ -102,7 +102,7 @@ class Fighter < Unit
 		end
 	end
 	def dup
-		Fighter.new(@defence == 4 ? false : true)
+		Fighter.new(@defend == 5)
 	end
 end
 
@@ -358,9 +358,8 @@ class Battle
 		end
 		
 		if @fireAA
-			@possibilities = Array.new(attacker.num_aircraft + 1) do |x| #TODO: is the below weight calculation correct?
+			@possibilities = Array.new(attacker.num_aircraft + 1) do |x|
 				Battle.new(attacker.dup.lose_aircraft(x),defender.dup,false, binom(attacker.num_aircraft,x, 1 / 6.0))
-				#combinations(attacker.num_aircraft,x) * ((1 / 6.0)**x) * ((5 / 6.0)**(attacker.num_aircraft - x)) )
 			end
 			@normalize = 1.0 #if we're firing AA, then the probabilities add to 1, so there's no need to normalize
 		#bombardment happens if there are units that can bombars, and if there are land units
@@ -525,17 +524,17 @@ class BattleCalc
 		@aunits[1].to_i.times {attackers.push(Tank.new)}
 		@aunits[2].to_i.times {attackers.push(Artillery.new)}
 		@aunits[3].to_i.times {attackers.push(Fighter.new)}
-		@aunits[4].to_i.times {attackers.push(Bomber.new)}
-		@aunits[5].to_i.times {attackers.push(Destroyer.new)}
+		@aunits[4].to_i.times {attackers.push(Bomber.new(@heavyBombers.get_value == '1'))}
+		@aunits[5].to_i.times {attackers.push(Destroyer.new(@combinedBombardment.get_value == '1'))}
 		@aunits[6].to_i.times {attackers.push(Battleship.new)}
 		@aunits[7].to_i.times {attackers.push(Carrier.new)}
 		@aunits[8].to_i.times {attackers.push(Transport.new)}
-		@aunits[9].to_i.times {attackers.push(Sub.new)}
+		@aunits[9].to_i.times {attackers.push(Sub.new(@superSubs.get_value == '1'))}
 
 		@dunits[0].to_i.times {defenders.push(Infantry.new)}
 		@dunits[1].to_i.times {defenders.push(Tank.new)}
 		@dunits[2].to_i.times {defenders.push(Artillery.new)}
-		@dunits[3].to_i.times {defenders.push(Fighter.new)}
+		@dunits[3].to_i.times {defenders.push(Fighter.new(@jets.get_value == '1'))}
 		@dunits[4].to_i.times {defenders.push(Bomber.new)}
 		@dunits[5].to_i.times {defenders.push(Destroyer.new)}
 		@dunits[6].to_i.times {defenders.push(Battleship.new)}

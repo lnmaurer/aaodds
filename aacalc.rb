@@ -1,4 +1,5 @@
 require 'tk'
+#require 'generator'
 
 def factorial(num)
   if num <= 0
@@ -445,40 +446,21 @@ protected
     (@attacker == a) and (@defender == d)
   end
 
-  def add_weight(id, weight)
-if @weights[id] != nil
-puts "weird", id, weight, @weights[id]
-end
-    @weights[id] = weight
-    self
-  end
-
-  def weight(id)
-    @weights[id]
-  end
-
-  def find_or_add(a, d, weight)
+  def find_or_add(a, d)
     found_or_new = @@battles.find{|battle| battle.same_as(a,d)}
     if found_or_new == nil
       found_or_new = Battle.new(a,d)
       @@battles.push(found_or_new)
     end
-if found_or_new.weight(self.object_id) != nil
-puts "a"
-  a.units.each{|unit| puts unit}
-puts "d"
-  d.units.each{|unit| puts unit}
-puts "oa"
-  found_or_new.attacker.units.each{|unit| puts unit}
-puts "od"
-  found_or_new.defender.units.each{|unit| puts unit}
-end
-    found_or_new.add_weight(self.object_id, weight)
+    found_or_new
   end
 
 public
+  def Battle.battles_calculated
+    @@battles.size
+  end
+
   def initialize(attacker, defender, aagun = false)
-    @weights = Hash.new
     @attacker = attacker.dup
     @defender = defender.dup
     @aagun = aagun
@@ -490,16 +472,24 @@ public
     #if there are battleships, then 1v1 combat is not good
     @battleship = (@attacker.has_battleship or @defender.has_battleship)
     #can we calculate one on one combat?
-    @can_single = ((not @fireAA) and (not @battleship) and (@attacker.size == 1) and (@defender.size == 1))
+#if aa guns fired, then there are multiple options even though the battle might have only one unit per side 
+#@attacker.max_hits because one heavy bomber has size 1 but can hit twice
+    @can_single = ((not @fireAA) and (not @battleship) and (@attacker.max_hits == 1) and (@defender.size == 1))
 
     if @fireAA
       @possibilities = Array.new(attacker.num_aircraft + 1) do |x|
 #        Battle.new(attacker.dup.lose_aircraft(x),defender.dup,false, binom(attacker.num_aircraft,x, 1 / 6.0))
-        find_or_add(attacker.dup.lose_aircraft(x),defender.dup, binom(attacker.num_aircraft,x, 1 / 6.0))
+        find_or_add(attacker.dup.lose_aircraft(x),defender.dup)
+      end
+      @probabilities = Array.new(attacker.num_aircraft + 1) do |x|
+        binom(attacker.num_aircraft,x, 1 / 6.0)
       end
     elsif @bombard
       @possibilities = Array.new(attacker.max_bombard_hits + 1) do |x|
-        find_or_add(attacker.dup.remove_sea,defender.dup.lose(x), attacker.bombard_probability(x))
+        find_or_add(attacker.dup.remove_sea,defender.dup.lose(x))
+      end
+      @probabilities = Array.new(attacker.max_bombard_hits + 1) do |x|
+        attacker.bombard_probability(x)
       end
     elsif (attacker.size > 0) and (defender.size > 0)
       @possibilities = Array.new(attacker.max_hits + 1) do |x|
@@ -507,12 +497,23 @@ public
           if (x == 0) and (y == 0)
             nil #to prevent infinite recursion
           else
-            find_or_add(attacker.dup.lose(y), defender.dup.lose(x), attacker.probability(x)*defender.probability(y))
+            find_or_add(attacker.dup.lose(y), defender.dup.lose(x))
+          end
+        end
+      end
+      @probabilities = Array.new(attacker.max_hits + 1) do |x|
+        Array.new(defender.max_hits + 1) do |y|
+          if (x == 0) and (y == 0)
+            nil
+          else
+            attacker.probability(x)*defender.probability(y)
           end
         end
       end
       @possibilities.flatten! #@possibilities consists of nested arrays, we don't want it that way
       @possibilities.delete(nil) #get rid of the 'nil' item
+      @probabilities.flatten!
+      @probabilities.delete(nil)
       @normalize = 1 / (1 - @attacker.probability(0)*@defender.probability(0))
 
 #puts "weights"
@@ -525,12 +526,12 @@ public
       1
     elsif @attacker.size == 0
       0
-#if aa guns fired, then there are multiple options even though the battle might have only one unit per side 
-#@attacker.max_hits because one heavy bomber has size 1 but can hit twice
    elsif @can_single
       @attacker.probability(1) * @defender.probability(0) * @normalize
     else
-      @possibilities.inject(0){|prob, battle| prob + battle.weight(self.object_id) * battle.prob_attacker_wins} * @normalize
+      @possibilities.zip(@probabilities).inject(0){|sum,args| sum + args[0].prob_attacker_wins * args[1]} * @normalize
+#      gen = SyncEnumerator.new(@possibilities,@probabilities)
+#      gen.inject(0){|sum,args| sum + args[0].prob_attacker_wins * args[1]} * @normalize
     end
   end
   
@@ -542,7 +543,9 @@ public
     elsif @can_single
       @attacker.probability(0) * @defender.probability(1) * @normalize
     else
-      @possibilities.inject(0){|prob, battle| prob + battle.weight(self.object_id) * battle.prob_defender_wins} * @normalize
+      @possibilities.zip(@probabilities).inject(0){|sum,args| sum + args[0].prob_defender_wins * args[1]} * @normalize
+#      gen = SyncEnumerator.new(@possibilities,@probabilities)
+#      gen.inject(0){|sum,args| sum + args[0].prob_defender_wins * args[1]} * @normalize
     end  
   end
   def prob_mutual_annihilation
@@ -553,7 +556,9 @@ public
     elsif @can_single
       @attacker.probability(1) * @defender.probability(1) * @normalize
     else
-      @possibilities.inject(0){|prob, battle| prob + battle.weight(self.object_id) * battle.prob_mutual_annihilation} * @normalize
+      @possibilities.zip(@probabilities).inject(0){|sum,args| sum + args[0].prob_mutual_annihilation * args[1]} * @normalize
+#      gen = SyncEnumerator.new(@possibilities,@probabilities)
+#      gen.inject(0){|sum,args| sum + args[0].prob_mutual_annihilation * args[1]} * @normalize
     end
   end
   
@@ -678,6 +683,14 @@ class BattleGUI
       relief  'sunken'
     }.grid('column'=>1,'row'=> 14 + unitStartRow, 'sticky'=>'w', 'padx'=>5)
     sumDisp.textvariable(@sum)
+
+    TkLabel.new(@root, 'text'=>"Battles").grid('column'=>0,'row'=> 15 + unitStartRow, 'sticky'=>'w')
+    @battles = TkVariable.new()
+    battleDisp = TkEntry.new(@root) {
+      width 30
+      relief  'sunken'
+    }.grid('column'=>1,'row'=> 15 + unitStartRow, 'sticky'=>'w', 'padx'=>5)
+    battleDisp.textvariable(@battles)
   end
   def doBattle
     attackers = Array.new
@@ -712,6 +725,7 @@ class BattleGUI
     @defenderProb.value = @battle.prob_defender_wins.to_s
     @annihilationProb.value = @battle.prob_mutual_annihilation.to_s
     @sum.value = @battle.testprob
+    @battles.value = Battle.battles_calculated
   end
 end
 

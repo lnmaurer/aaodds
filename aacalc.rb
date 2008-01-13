@@ -351,7 +351,7 @@ public
   end
   
   def size
-    @units.length
+    @units.size
   end
   
   def num_aircraft
@@ -444,17 +444,21 @@ protected
   end
 
   def find_or_add(a, d)
-    found_or_new = @@battles.find{|battle| battle.same_as(a,d)}
+    row = @@battles[a.size + d.size]
+    if row == nil
+      row = @@battles[a.size + d.size] = Array.new
+    end
+    found_or_new = row.find{|battle| battle.same_as(a,d)}
     if found_or_new == nil
       found_or_new = Battle.new(a,d)
-      @@battles.push(found_or_new)
+      row.push(found_or_new)
     end
     found_or_new
   end
 
 public
   def Battle.battles_calculated
-    @@battles.size
+    @@battles.inject(0){|size,subarray| size + subarray.size}
   end
 
   def Battle.reset_calculated_battles

@@ -278,7 +278,7 @@ protected
         group = units.find_all{|unit| unit.power == x}
         if group.length != 0
           nunits = Array.new
-          units.each{|unit| nunits.push(unit) if unit.object_id != group[0].object_id}
+          units.each{|unit| nunits.push(unit.dup) if unit.object_id != group[0].object_id}
           temparmy = Army.new(@attacking,false,nunits)
           max_hits = conditional_max_hits{|unit| yield(unit)}.to_f
 #temparmy already only has units that satisfy the condition, so we can have {|unit| true}
@@ -574,26 +574,32 @@ public
   end
   
   def expected_attacking_army_value
-    if @attacker.size == 0
-      0
-    elsif @defender.size == 0
-      @attacker.value
-    else
-      ex = @possibilities.inject(0){|ev,battle| ev + battle.weight(self.object_id) * battle.expected_attacking_army_value} * @normalize
-      if @bombard
-        ex += @attacker.sea_value #since ships are removed after bombardment
+    unless defined?(@eaav)
+      if @attacker.size == 0
+        @eaav = 0
+      elsif @defender.size == 0
+        @eaav = @attacker.value
+      else
+        @eaav = @possibilities.zip(@probabilities).inject(0){|sum,args| sum + args[0].expected_attacking_army_value * args[1]} * @normalize
+        if @bombard
+          @eaav += @attacker.sea_value #since ships are removed after bombardment
+        end
       end
     end
+    @eaav
   end
 
   def expected_defending_army_value
-    if @defender.size == 0
-      0
-    elsif @attacker.size == 0
-      @defender.value
-    else
-      @possibilities.inject(0){|ev,battle| ev + battle.weight(self.object_id)*battle.expected_defending_army_value} * @normalize
+    unless defined?(@edav)
+      if @defender.size == 0
+        @edav = 0
+      elsif @attacker.size == 0
+        @edav = @defender.value
+      else
+        @edav = @possibilities.inject(0){|ev,battle| ev + battle.weight(self.object_id)*battle.expected_defending_army_value} * @normalize
+      end
     end
+    @edav
   end
 
   def expected_IPC_loss_attacker

@@ -237,7 +237,7 @@ end
 
 class Army
 protected
-#  attr_reader :units
+  attr_reader :units
 
   def pair_infantry
     infantry = @units.find_all{|unit| unit.is_a?(Infantry)}
@@ -310,7 +310,7 @@ protected
   end
 
 public
-attr_reader :units #for debuging only!
+#attr_reader :units #for debuging only!
   def initialize(attacking,unpaired,units=nil)
     @attacking = attacking
     if units == nil
@@ -460,6 +460,10 @@ public
     @@battles.size
   end
 
+  def Battle.reset_calculated_battles
+    @@battles = Array.new
+  end
+
   def initialize(attacker, defender, aagun = false)
     @attacker = attacker.dup
     @defender = defender.dup
@@ -478,7 +482,6 @@ public
 
     if @fireAA
       @possibilities = Array.new(attacker.num_aircraft + 1) do |x|
-#        Battle.new(attacker.dup.lose_aircraft(x),defender.dup,false, binom(attacker.num_aircraft,x, 1 / 6.0))
         find_or_add(attacker.dup.lose_aircraft(x),defender.dup)
       end
       @probabilities = Array.new(attacker.num_aircraft + 1) do |x|
@@ -515,9 +518,6 @@ public
       @probabilities.flatten!
       @probabilities.delete(nil)
       @normalize = 1 / (1 - @attacker.probability(0)*@defender.probability(0))
-
-#puts "weights"
-#@possibilities.each{|battle| puts battle.weight(self.object_id) }
     end
   end
 
@@ -564,6 +564,7 @@ public
         @pma = @attacker.probability(1) * @defender.probability(1) * @normalize
       else
         @pma = @possibilities.zip(@probabilities).inject(0){|sum,args| sum + args[0].prob_mutual_annihilation * args[1]} * @normalize
+#it's a same that SyncEnumerator works so unbelivably poorly, otherwise we could use the following
 #        gen = SyncEnumerator.new(@possibilities,@probabilities)
 #        gen.inject(0){|sum,args| sum + args[0].prob_mutual_annihilation * args[1]} * @normalize
       end
@@ -700,6 +701,17 @@ class BattleGUI
       relief  'sunken'
     }.grid('column'=>1,'row'=> 15 + unitStartRow, 'sticky'=>'w', 'padx'=>5)
     battleDisp.textvariable(@battles)
+
+    resetBattles = proc {
+      Battle.reset_calculated_battles
+      @battles.value = Battle.battles_calculated
+    }
+
+    TkButton.new(@root) {
+      text    'Reset Battles'
+      command resetBattles
+    }.grid('column'=>2, 'row'=>15 + unitStartRow,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+
   end
   def doBattle
     attackers = Array.new

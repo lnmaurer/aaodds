@@ -1,5 +1,6 @@
 require 'tk'
 #require 'generator'
+#require 'profiler'
 
 def factorial(num)
   if num <= 0
@@ -73,11 +74,7 @@ class Unit
     @type == 2
   end
   def power
-    if @attacking
-      @attack
-    else
-      @defend
-    end
+    @attacking ? @attack : @defend
   end  
   def prob
     if @attacking
@@ -325,17 +322,17 @@ public
   end
 
   def ==(other)
-     if self.class == other.class
+     if (self.class == other.class) and (@units.size == other.units.size)
        temp = other.units.dup
-       count = 0
        @units.each do |unit|
-         i = temp.index(unit) #TODO: use object_id instead
+         i = temp.index(unit)
          if i != nil
            temp.delete_at(i)
-           count += 1
+         else
+           break
          end
        end
-       (temp.size == 0) and (count == @units.size)
+       temp.size == 0
      else
        false
      end 
@@ -714,6 +711,7 @@ class BattleGUI
 
   end
   def doBattle
+#Profiler__::start_profile
     attackers = Array.new
     defenders = Array.new
 
@@ -747,6 +745,8 @@ class BattleGUI
     @annihilationProb.value = @battle.prob_mutual_annihilation.to_s
     @sum.value = @battle.testprob
     @battles.value = Battle.battles_calculated
+#Profiler__::stop_profile
+#Profiler__::print_profile($stdout)
   end
 end
 

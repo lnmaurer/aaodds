@@ -522,44 +522,53 @@ public
   end
 
   def prob_attacker_wins
-    if (@attacker.size != 0) and (@defender.size == 0)
-      1
-    elsif @attacker.size == 0
-      0
-   elsif @can_single
-      @attacker.probability(1) * @defender.probability(0) * @normalize
-    else
-      @possibilities.zip(@probabilities).inject(0){|sum,args| sum + args[0].prob_attacker_wins * args[1]} * @normalize
-#      gen = SyncEnumerator.new(@possibilities,@probabilities)
-#      gen.inject(0){|sum,args| sum + args[0].prob_attacker_wins * args[1]} * @normalize
+    unless defined?(@paw)
+      if (@attacker.size != 0) and (@defender.size == 0)
+        @paw = 1
+      elsif @attacker.size == 0
+        @paw = 0
+      elsif @can_single
+        @paw = @attacker.probability(1) * @defender.probability(0) * @normalize
+      else
+        @paw = @possibilities.zip(@probabilities).inject(0){|sum,args| sum + args[0].prob_attacker_wins * args[1]} * @normalize
+#        gen = SyncEnumerator.new(@possibilities,@probabilities)
+#        gen.inject(0){|sum,args| sum + args[0].prob_attacker_wins * args[1]} * @normalize
+      end
     end
+    @paw
   end
   
   def prob_defender_wins
-    if (@attacker.size == 0) and (@defender.size != 0)
-      1
-    elsif @defender.size == 0
-      0
-    elsif @can_single
-      @attacker.probability(0) * @defender.probability(1) * @normalize
-    else
-      @possibilities.zip(@probabilities).inject(0){|sum,args| sum + args[0].prob_defender_wins * args[1]} * @normalize
-#      gen = SyncEnumerator.new(@possibilities,@probabilities)
-#      gen.inject(0){|sum,args| sum + args[0].prob_defender_wins * args[1]} * @normalize
-    end  
+    unless defined?(@pdw)
+      if (@attacker.size == 0) and (@defender.size != 0)
+        @pdw = 1
+      elsif @defender.size == 0
+        @pdw = 0
+      elsif @can_single
+        @pdw = @attacker.probability(0) * @defender.probability(1) * @normalize
+      else
+        @pdw = @possibilities.zip(@probabilities).inject(0){|sum,args| sum + args[0].prob_defender_wins * args[1]} * @normalize
+#        gen = SyncEnumerator.new(@possibilities,@probabilities)
+#        gen.inject(0){|sum,args| sum + args[0].prob_defender_wins * args[1]} * @normalize
+      end  
+    end
+    @pdw
   end
   def prob_mutual_annihilation
-    if (@attacker.size == 0) and (@defender.size == 0)
-      1
-    elsif ((@attacker.size == 0) and (@defender.size != 0)) or ((@attacker.size != 0) and (@defender.size == 0))
-      0
-    elsif @can_single
-      @attacker.probability(1) * @defender.probability(1) * @normalize
-    else
-      @possibilities.zip(@probabilities).inject(0){|sum,args| sum + args[0].prob_mutual_annihilation * args[1]} * @normalize
-#      gen = SyncEnumerator.new(@possibilities,@probabilities)
-#      gen.inject(0){|sum,args| sum + args[0].prob_mutual_annihilation * args[1]} * @normalize
+    unless defined?(@pma)
+      if (@attacker.size == 0) and (@defender.size == 0)
+        @pma = 1
+      elsif ((@attacker.size == 0) and (@defender.size != 0)) or ((@attacker.size != 0) and (@defender.size == 0))
+        @pma = 0
+      elsif @can_single
+        @pma = @attacker.probability(1) * @defender.probability(1) * @normalize
+      else
+        @pma = @possibilities.zip(@probabilities).inject(0){|sum,args| sum + args[0].prob_mutual_annihilation * args[1]} * @normalize
+#        gen = SyncEnumerator.new(@possibilities,@probabilities)
+#        gen.inject(0){|sum,args| sum + args[0].prob_mutual_annihilation * args[1]} * @normalize
+      end
     end
+    @pma
   end
   
   def testprob

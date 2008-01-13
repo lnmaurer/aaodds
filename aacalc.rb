@@ -327,19 +327,19 @@ public
        @units.each do |unit|
          i = temp.index(unit)
          if i != nil
-           temp.delete_at(i)
+           temp[i] = nil
          else
            break
          end
        end
-       temp.size == 0
+       temp.nitems == 0 #nitems is the number of non nil items
      else
        false
      end 
   end
   
   def dup
-    Army.new(@attacking,false,Array.new(units.length){|x| units[x].dup})
+    Army.new(@attacking,false,@units.collect{|unit| unit.dup})
   end
   
   def value
@@ -511,9 +511,9 @@ public
         end
       end
       @possibilities.flatten! #@possibilities consists of nested arrays, we don't want it that way
-      @possibilities.delete(nil) #get rid of the 'nil' item
+      @possibilities.compact! #get rid of the 'nil' item
       @probabilities.flatten!
-      @probabilities.delete(nil)
+      @probabilities.compact!
       @normalize = 1 / (1 - @attacker.probability(0)*@defender.probability(0))
     end
   end

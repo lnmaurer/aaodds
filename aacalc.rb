@@ -435,28 +435,30 @@ class Battle
 protected
   attr_reader :attacker, :defender, :aagun
   @@battles = Array.new
+
+public
+
   def ==(other)
     (self.object_id == other.object_id) and (@attacker == other.attacker) and (@defender == other.defender) and (@aagun == other.aagun)
   end
  
-  def same_as(a,d)
-    (@attacker == a) and (@defender == d)
+  def same_as(a,d,aagun)
+    (@attacker == a) and (@defender == d) and (@aagun == aagun)
   end
 
-  def find_or_add(a, d)
+  def Battle.find_or_new(a, d, aagun=false)
     row = @@battles[a.size + d.size]
     if row == nil
       row = @@battles[a.size + d.size] = Array.new
     end
-    found_or_new = row.find{|battle| battle.same_as(a,d)}
+    found_or_new = row.find{|battle| battle.same_as(a,d,aagun)}
     if found_or_new == nil
-      found_or_new = Battle.new(a,d)
+      found_or_new = Battle.new(a,d,aagun)
       row.push(found_or_new)
     end
     found_or_new
   end
 
-public
   def Battle.battles_calculated
     @@battles.inject(0){|size,subarray| size + subarray.size}
   end
@@ -483,14 +485,14 @@ public
 
     if @fireAA
       @possibilities = Array.new(attacker.num_aircraft + 1) do |x|
-        find_or_add(attacker.dup.lose_aircraft(x),defender.dup)
+        Battle.find_or_new(attacker.dup.lose_aircraft(x),defender.dup)
       end
       @probabilities = Array.new(attacker.num_aircraft + 1) do |x|
         binom(attacker.num_aircraft,x, 1 / 6.0)
       end
     elsif @bombard
       @possibilities = Array.new(attacker.max_bombard_hits + 1) do |x|
-        find_or_add(attacker.dup.remove_sea,defender.dup.lose(x))
+        Battle.find_or_new(attacker.dup.remove_sea,defender.dup.lose(x))
       end
       @probabilities = Array.new(attacker.max_bombard_hits + 1) do |x|
         attacker.bombard_probability(x)
@@ -501,7 +503,7 @@ public
           if (x == 0) and (y == 0)
             nil #to prevent infinite recursion
           else
-            find_or_add(attacker.dup.lose(y), defender.dup.lose(x))
+            Battle.find_or_new(attacker.dup.lose(y), defender.dup.lose(x))
           end
         end
       end
@@ -749,7 +751,7 @@ class BattleGUI
 
     aarmy = Army.new(true,true,attackers)
     darmy = Army.new(false,true,defenders)
-    @battle = Battle.new(aarmy,darmy,@aaGun.get_value == '1')
+    @battle = Battle.find_or_new(aarmy,darmy,@aaGun.get_value == '1')
     @attackerProb.value = @battle.prob_attacker_wins.to_s
     @defenderProb.value = @battle.prob_defender_wins.to_s
     @annihilationProb.value = @battle.prob_mutual_annihilation.to_s

@@ -309,6 +309,7 @@ protected
 public
 #attr_reader :units #for debuging only!
   def initialize(attacking,unpaired,units=nil)
+    @probs = Array.new
     @attacking = attacking
     if units == nil
       @units = Array.new
@@ -403,19 +404,21 @@ public
   end
   
   def probability(hits)
-    hbombers = @units.find_all {|unit| unit.is_a?(Bomber) and unit.heavy}
-    if @attacking and hbombers.length > 0
-      hbombers.each do |bomber|
-        bomber.make_normal
-        @units.push(bomber.dup)
-      end
+    if @probs[hits] == nil
+        hbombers = @units.find_all {|unit| unit.is_a?(Bomber) and unit.heavy}
+        if @attacking and hbombers.length > 0
+          hbombers.each do |bomber|
+            bomber.make_normal
+            @units.push(bomber.dup)
+          end
+        end
+        @probs[hits] = self.conditional_probability(hits) {|unit| true}
+        if @attacking and hbombers.length > 0
+          hbombers.each {|bomber| bomber.make_heavy}
+          @units.delete_if {|unit| unit.is_a?(Bomber) and (not unit.heavy)}
+        end
     end
-    prob = self.conditional_probability(hits) {|unit| true}
-    if @attacking and hbombers.length > 0
-      hbombers.each {|bomber| bomber.make_heavy}
-      @units.delete_if {|unit| unit.is_a?(Bomber) and (not unit.heavy)}
-    end
-    return prob
+    return @probs[hits]
   end  
   
   def bombard_probability(hits)

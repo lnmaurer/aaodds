@@ -1,0 +1,42 @@
+Aacalc revision 42
+Copyright (C) 2008 Leon N. Maurer
+http://www.dartmouth.edu/~lmaurer/
+Source code available under the GNU Public License.
+See the Readme for information about the controls.
+
+This program calculates the exact odds of Battles in the revised edition of
+Axis and Allies. It currently does not take the first strike ability of
+submarines in to account. You may also get some weird results if you have
+illegal battles (like infantry vs. aircraft carriers). Since this program is
+calculates the odds exactly — it does not simulate them — it is very slow for
+large battles. I may add simulation capability later to speed this up.
+
+Controls:
+
+Technology and unit selection is self explanatory.
+
+Caclulate: finds the odds for the battle.
+
+Reset: clears all technology and unit selections.
+
+Attacker wins: probability of attacker winning.
+
+Defender wins: probability of defender winning.
+
+Mutual annihilation: probability of no units surviving the battle.
+
+Sum: The sum of the previous three probabilities. This is shown as a debugging
+feature — it should always be "1.0". If it is not, feel free to contact the
+author with details about the battle.
+
+Battles: The program calculates battle odds by breaking a large battle in to
+smaller battles which are easier to calculate. The results of these
+intermediate battles are stored in memory to speed up computation (because the
+results of the same mini battle are often required multiple times to find the
+results of the overall battle). Storing these battles can speed up
+calculations of other battles, however if the number of stored battles gets two
+long, it could slow down calculations because the program frequently has to
+search through all of them.
+
+Reset Battles: Clears the memory of stored battles to solve the slowdown
+problem.

@@ -627,7 +627,22 @@ class BattleGUI
     @root = TkRoot.new() {title 'Battle Calculator'}
     row = 0
 
-    TkLabel.new(@root, 'text'=>"AA gun").grid('column'=>0,'row'=>row, 'sticky'=>'w')
+    about = proc {Tk.messageBox('type' => 'ok',
+      'icon' => 'info',
+      'title' => 'About',
+      'message' => "Aacalc revision 42\n" + 
+      "Copyright (C) 2008 Leon N. Maurer\n" +
+      'http://www.dartmouth.edu/~lmaurer/' + "\n" +
+      "Source code available under the GNU Public License.\n" +
+      "See the Readme for information about the controls."
+    )}  
+    TkButton.new(@root) {
+      text    'About This Program'
+      command about
+    }.grid('column'=>1, 'row'=>row,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+
+
+    TkLabel.new(@root, 'text'=>"AA gun").grid('column'=>0,'row'=>(row += 1), 'sticky'=>'w')
     @aaGun = TkCheckButton.new(@root).grid('column'=>1,'row'=> row, 'sticky'=>'w')
     TkLabel.new(@root, 'text'=>"Hv. Bombers").grid('column'=>2,'row'=>row, 'sticky'=>'w')
     @heavyBombers = TkCheckButton.new(@root).grid('column'=>3,'row'=> row, 'sticky'=>'w')

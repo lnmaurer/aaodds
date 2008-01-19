@@ -39,20 +39,6 @@ class FalseClass
   end
 end
 
-class Counter
-  attr_reader :value
-  attr_writer :value
-  def initialize(num=0)
-    @value = num
-  end
-
-  def inc
-    old_value = @value
-    @value += 1
-    return old_value
-  end
-end
-
 class Unit
   attr_reader :value, :can_bombard, :lives, :first_strike, :attacking, :attack, :defend
   attr_writer :attacking
@@ -622,24 +608,21 @@ end
 class BattleGUI
   def initialize
     @root = TkRoot.new() {title 'Battle Calculator'}
+    row = 0
 
-    row = Counter.new
+    TkLabel.new(@root, 'text'=>"AA gun").grid('column'=>0,'row'=>row, 'sticky'=>'w')
+    @aaGun = TkCheckButton.new(@root).grid('column'=>1,'row'=> row, 'sticky'=>'w')
+    TkLabel.new(@root, 'text'=>"Hv. Bombers").grid('column'=>2,'row'=>row, 'sticky'=>'w')
+    @heavyBombers = TkCheckButton.new(@root).grid('column'=>3,'row'=> row, 'sticky'=>'w')
+    TkLabel.new(@root, 'text'=>"Comb. Bom.").grid('column'=>0,'row'=>(row += 1), 'sticky'=>'w')
+    @combinedBombardment = TkCheckButton.new(@root).grid('column'=>1,'row'=> row, 'sticky'=>'w')
+    TkLabel.new(@root, 'text'=>"Jets").grid('column'=>2,'row'=>row, 'sticky'=>'w')
+    @jets = TkCheckButton.new(@root).grid('column'=>3,'row'=> row, 'sticky'=>'w')
+    TkLabel.new(@root, 'text'=>"Super Subs").grid('column'=>0,'row'=>(row += 1), 'sticky'=>'w')
+    @superSubs = TkCheckButton.new(@root).grid('column'=>1,'row'=> row, 'sticky'=>'w')
 
-    TkLabel.new(@root, 'text'=>"AA gun").grid('column'=>0,'row'=>row.value, 'sticky'=>'w')
-    @aaGun = TkCheckButton.new(@root).grid('column'=>1,'row'=> row.value, 'sticky'=>'w')
-    TkLabel.new(@root, 'text'=>"Hv. Bombers").grid('column'=>2,'row'=>row.value, 'sticky'=>'w')
-    @heavyBombers = TkCheckButton.new(@root).grid('column'=>3,'row'=> row.inc, 'sticky'=>'w')
-    TkLabel.new(@root, 'text'=>"Comb. Bom.").grid('column'=>0,'row'=>row.value, 'sticky'=>'w')
-    @combinedBombardment = TkCheckButton.new(@root).grid('column'=>1,'row'=> row.value, 'sticky'=>'w')
-    TkLabel.new(@root, 'text'=>"Jets").grid('column'=>2,'row'=>row.value, 'sticky'=>'w')
-    @jets = TkCheckButton.new(@root).grid('column'=>3,'row'=> row.inc, 'sticky'=>'w')
-    TkLabel.new(@root, 'text'=>"Super Subs").grid('column'=>0,'row'=>row.value, 'sticky'=>'w')
-    @superSubs = TkCheckButton.new(@root).grid('column'=>1,'row'=> row.inc, 'sticky'=>'w')
-
-
-    unitStartRow = 4
-    TkLabel.new(@root, 'text'=>"Attacker").grid('column'=>0,'row'=>row.value, 'sticky'=>'w','pady'=>5)
-    TkLabel.new(@root, 'text'=>"Defender").grid('column'=>2,'row'=>row.inc, 'sticky'=>'w','pady'=>5)
+    TkLabel.new(@root, 'text'=>"Attacker").grid('column'=>0,'row'=>(row += 1), 'sticky'=>'w','pady'=>5)
+    TkLabel.new(@root, 'text'=>"Defender").grid('column'=>2,'row'=>row, 'sticky'=>'w','pady'=>5)
     @aunits = Array.new(10) {TkVariable.new()}
     @dunits = Array.new(10) {TkVariable.new()}
     num_units = (0..20).to_a
@@ -648,17 +631,17 @@ class BattleGUI
     dlabels = ['Infantry', 'Tank', 'Artillery', 'Fighter', 'Bomber','Destroyer','Battleship','Carrier','Transport','Sub'].collect { |label|
       TkLabel.new(@root, 'text'=>label)}
     10.times do |i|
-      alabels[i].grid('column'=>0,'row'=> row.value, 'sticky'=>'w')
-      TkOptionMenubutton.new(@root, @aunits[i], *num_units) {width   1}.grid('column'=>1, 'row'=>row.value,'sticky'=>'w')
-      dlabels[i].grid('column'=>2,'row'=> row.value, 'sticky'=>'w')
-      TkOptionMenubutton.new(@root, @dunits[i], *num_units) {width   1}.grid('column'=>3, 'row'=>row.inc,'sticky'=>'w')
+      alabels[i].grid('column'=>0,'row'=> (row += 1), 'sticky'=>'w')
+      TkOptionMenubutton.new(@root, @aunits[i], *num_units) {width   1}.grid('column'=>1, 'row'=>row,'sticky'=>'w')
+      dlabels[i].grid('column'=>2,'row'=> row, 'sticky'=>'w')
+      TkOptionMenubutton.new(@root, @dunits[i], *num_units) {width   1}.grid('column'=>3, 'row'=>row,'sticky'=>'w')
     end
 
     calc = proc {self.doBattle}  
     TkButton.new(@root) {
       text    'Clalculate'
       command calc
-    }.grid('column'=>1, 'row'=>10 + unitStartRow,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    }.grid('column'=>1, 'row'=>(row += 1),'sticky'=>'w', 'padx'=>5, 'pady'=>5)
 
     reset = proc {
       @aunits.each{|var| var.value = 0}
@@ -672,46 +655,46 @@ class BattleGUI
     TkButton.new(@root) {
       text    'Reset'
       command reset
-    }.grid('column'=>2, 'row'=>10 + unitStartRow,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    }.grid('column'=>2, 'row'=>row,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
 
-    TkLabel.new(@root, 'text'=>"Attacker wins").grid('column'=>0,'row'=> 11 + unitStartRow, 'sticky'=>'w')
+    TkLabel.new(@root, 'text'=>"Attacker wins").grid('column'=>0,'row'=> (row += 1), 'sticky'=>'w')
     @attackerProb = TkVariable.new()
     attackerProbDisp = TkEntry.new(@root) {
       width 30
       relief  'sunken'
-    }.grid('column'=>1,'row'=> 11 + unitStartRow, 'sticky'=>'w', 'padx'=>5)
+    }.grid('column'=>1,'row'=> row, 'sticky'=>'w', 'padx'=>5)
     attackerProbDisp.textvariable(@attackerProb)
 
-    TkLabel.new(@root, 'text'=>"Defender wins").grid('column'=>0,'row'=> 12 + unitStartRow, 'sticky'=>'w')
+    TkLabel.new(@root, 'text'=>"Defender wins").grid('column'=>0,'row'=> (row += 1), 'sticky'=>'w')
     @defenderProb = TkVariable.new()
     defenderProbDisp = TkEntry.new(@root) {
       width 30
       relief  'sunken'
-    }.grid('column'=>1,'row'=> 12 + unitStartRow, 'sticky'=>'w', 'padx'=>5)
+    }.grid('column'=>1,'row'=> row, 'sticky'=>'w', 'padx'=>5)
     defenderProbDisp.textvariable(@defenderProb)
 
-    TkLabel.new(@root, 'text'=>"Mutual annihilation").grid('column'=>0,'row'=> 13 + unitStartRow, 'sticky'=>'w')
+    TkLabel.new(@root, 'text'=>"Mutual annihilation").grid('column'=>0,'row'=> (row += 1), 'sticky'=>'w')
     @annihilationProb = TkVariable.new()
     annihilationProbDisp = TkEntry.new(@root) {
       width 30
       relief  'sunken'
-    }.grid('column'=>1,'row'=> 13 + unitStartRow, 'sticky'=>'w', 'padx'=>5)
+    }.grid('column'=>1,'row'=> row, 'sticky'=>'w', 'padx'=>5)
     annihilationProbDisp.textvariable(@annihilationProb)
 
-    TkLabel.new(@root, 'text'=>"Sum").grid('column'=>0,'row'=> 14 + unitStartRow, 'sticky'=>'w')
+    TkLabel.new(@root, 'text'=>"Sum").grid('column'=>0,'row'=> (row += 1), 'sticky'=>'w')
     @sum = TkVariable.new()
     sumDisp = TkEntry.new(@root) {
       width 30
       relief  'sunken'
-    }.grid('column'=>1,'row'=> 14 + unitStartRow, 'sticky'=>'w', 'padx'=>5)
+    }.grid('column'=>1,'row'=> row, 'sticky'=>'w', 'padx'=>5)
     sumDisp.textvariable(@sum)
 
-    TkLabel.new(@root, 'text'=>"Battles").grid('column'=>0,'row'=> 15 + unitStartRow, 'sticky'=>'w')
+    TkLabel.new(@root, 'text'=>"Battles").grid('column'=>0,'row'=> (row += 1), 'sticky'=>'w')
     @battles = TkVariable.new()
     battleDisp = TkEntry.new(@root) {
       width 30
       relief  'sunken'
-    }.grid('column'=>1,'row'=> 15 + unitStartRow, 'sticky'=>'w', 'padx'=>5)
+    }.grid('column'=>1,'row'=> row, 'sticky'=>'w', 'padx'=>5)
     battleDisp.textvariable(@battles)
 
     resetBattles = proc {
@@ -722,7 +705,7 @@ class BattleGUI
     TkButton.new(@root) {
       text    'Reset Battles'
       command resetBattles
-    }.grid('column'=>2, 'row'=>15 + unitStartRow,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    }.grid('column'=>2, 'row'=>row,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
 
   end
   def doBattle

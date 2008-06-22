@@ -56,6 +56,24 @@ class FalseClass
   end
 end
 
+class Array
+  def rshift(n)
+    i = 0
+    self.collect{|blah|
+      if i < n
+        t = 0
+      else
+        t = self[i-n]
+      end
+      i += 1
+      t
+    }
+  end
+  def mult(n)
+    self.collect{|val| n * val}
+  end
+end
+
 class Unit
   attr_reader :value, :can_bombard, :lives, :first_strike, :attacking, :attack, :defend
   attr_writer :attacking
@@ -268,29 +286,33 @@ protected
       end
     end
   end
+  
+  def conditional_probabilities
+    units = @units.find_all{|unit| yield(unit)}
+    strengths = Array.new(5,0)
+    units.each{|unit| strengths[unit.power - 1] += 1}
+    
+    probs = Array.new(units.size + 1, 0.0)
+    probs[0] = 1.0
+    strengths.each_with_index{|num,p|
+      power = p + 1
+      pos = Array.new(num + 1,nil)
+      for hits in (0..num)
+        pos[hits] = probs.rshift(hits).mult(binom(num,hits,power/6.0))
+      end
+      probs.size.times{|x|
+        probs[x] = 0
+        pos.size.times{|y|
+          probs[x] += pos[y][x]
+        }
+      }
+    }
+    probs.each{|p| print p,' '}
+    probs
+  end
 
   def conditional_probability(hits)
-    units = @units.find_all{|unit| yield(unit)}
-    if hits <= 0
-      return units.inject(1){|prob,unit| prob * (1 - unit.prob)}
-    elsif hits > units.size
-      return 0
-    else
-      prob = 0
-      1.upto(6) do |x|
-        group = units.find_all{|unit| unit.power == x}
-        if group.length != 0
-          nunits = Array.new
-          units.each{|unit| nunits.push(unit.dup) if unit.object_id != group[0].object_id}
-          temparmy = Army.new(@attacking,false,nunits)
-          max_hits = conditional_max_hits{|unit| yield(unit)}.to_f
-#temparmy already only has units that satisfy the condition, so we can have {|unit| true}
-          prob += (x / 6.0)*(group.length / max_hits) * temparmy.conditional_probability(hits - 1) {|unit| true}
-          prob += (1 - (x / 6.0))*(group.length / max_hits) * temparmy.conditional_probability(hits) {|unit| true}
-        end
-      end
-    end
-    return prob
+    self.conditional_probabilities{|unit| yield(unit)}[hits]
   end
 
   def conditional_max_hits
@@ -406,22 +428,24 @@ public
     self
   end
   
-  def probability(hits)
-    if @probs[hits] == nil
-        hbombers = @units.find_all {|unit| unit.is_a?(Bomber) and unit.heavy}
-        if @attacking and hbombers.length > 0
-          hbombers.each do |bomber|
-            bomber.make_normal
-            @units.push(bomber.dup)
-          end
-        end
-        @probs[hits] = self.conditional_probability(hits) {|unit| true}
-        if @attacking and hbombers.length > 0
-          hbombers.each {|bomber| bomber.make_heavy}
-          @units.delete_if {|unit| unit.is_a?(Bomber) and (not unit.heavy)}
-        end
+  def probabilities
+    hbombers = @units.find_all {|unit| unit.is_a?(Bomber) and unit.heavy}
+    if @attacking and hbombers.length > 0
+      hbombers.each{|bomber|
+        bomber.make_normal
+        @units.push(bomber.dup)
+      }
     end
-    return @probs[hits]
+    probs = self.conditional_probabilities {|unit| true}
+    if @attacking and hbombers.length > 0
+      hbombers.each {|bomber| bomber.make_heavy}
+      @units.delete_if {|unit| unit.is_a?(Bomber) and (not unit.heavy)}
+    end
+    return probs
+  end
+  
+  def probability(hits)
+    return self.probabilities[hits]
   end  
   
   def bombard_probability(hits)

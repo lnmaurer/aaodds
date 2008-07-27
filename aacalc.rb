@@ -287,6 +287,7 @@ protected
     end
   end
   
+#TODO: will this work with heavy bombers?
   def conditional_probabilities
     units = @units.find_all{|unit| yield(unit)}
     strengths = Array.new(5,0)
@@ -462,39 +463,8 @@ public
 end
 
 class Battle
-protected
-  attr_reader :attacker, :defender, :aagun
-  @@battles = Array.new
-
-public
-
-  def ==(other)
-    (self.object_id == other.object_id) and (@attacker == other.attacker) and (@defender == other.defender) and (@aagun == other.aagun)
-  end
- 
-  def same_as(a,d,aagun)
-    (@attacker == a) and (@defender == d) and (@aagun == aagun)
-  end
-
-  def Battle.find_or_new(a, d, aagun=false)
-    row = @@battles[a.size + d.size]
-    if row == nil
-      row = @@battles[a.size + d.size] = Array.new
-    end
-    found_or_new = row.find{|battle| battle.same_as(a,d,aagun)}
-    if found_or_new == nil
-      found_or_new = Battle.new(a,d,aagun)
-      row.push(found_or_new)
-    end
-    found_or_new
-  end
-
-  def Battle.battles_calculated
-    @@battles.inject(0){|size,subarray| size + subarray.size}
-  end
-
-  def Battle.reset_calculated_battles
-    @@battles = Array.new
+  def numcon(i)
+    [@a.size - (i / @a.size), @d.size - (i % (@d.size + 1))]
   end
 
   def initialize(attacker, defender, aagun = false)
@@ -504,145 +474,46 @@ public
     @fireAA = (aagun and @attacker.has_air)
     #bombardment happens if there are units that can bombars, and if there are land units
     @bombard = (@attacker.can_bombard and @attacker.has_land)
-    #AAgun fire and Bombards are already normazlied
-    @normalize = 1.0
-    #if there are battleships, then 1v1 combat is not good
-    @battleship = (@attacker.has_battleship or @defender.has_battleship)
-    #can we calculate one on one combat?
-#if aa guns fired, then there are multiple options even though the battle might have only one unit per side 
-#@attacker.max_hits because one heavy bomber has size 1 but can hit twice
-    @can_single = ((not @fireAA) and (not @battleship) and (@attacker.max_hits == 1) and (@defender.size == 1))
+    
+    @simple = (not @bombard) and (not @fireAA)
 
-    if @fireAA
-      @possibilities = Array.new(attacker.num_aircraft + 1) do |x|
-        Battle.find_or_new(attacker.dup.lose_aircraft(x),defender.dup)
-      end
-      @probabilities = Array.new(attacker.num_aircraft + 1) do |x|
-        binom(attacker.num_aircraft,x, 1 / 6.0)
-      end
-    elsif @bombard
-      @possibilities = Array.new(attacker.max_bombard_hits + 1) do |x|
-        Battle.find_or_new(attacker.dup.remove_sea,defender.dup.lose(x))
-      end
-      @probabilities = Array.new(attacker.max_bombard_hits + 1) do |x|
-        attacker.bombard_probability(x)
-      end
-    elsif (attacker.size > 0) and (defender.size > 0)
-      @possibilities = Array.new(attacker.max_hits + 1) do |x|
-        Array.new(defender.max_hits + 1) do |y|
-          if (x == 0) and (y == 0)
-            nil #to prevent infinite recursion
-          else
-            Battle.find_or_new(attacker.dup.lose(y), defender.dup.lose(x))
-          end
-        end
-      end
-      @probabilities = Array.new(attacker.max_hits + 1) do |x|
-        Array.new(defender.max_hits + 1) do |y|
-          if (x == 0) and (y == 0)
-            nil
-          else
-            attacker.probability(x)*defender.probability(y)
-          end
-        end
-      end
-      @possibilities.flatten! #@possibilities consists of nested arrays, we don't want it that way
-      @possibilities.compact! #get rid of the 'nil' item
-      @probabilities.flatten!
-      @probabilities.compact!
-      @normalize = 1 / (1 - @attacker.probability(0)*@defender.probability(0))
+#TODO: take care of this in the markov chain
+#     if @fireAA
+#       @possibilities = Array.new(attacker.num_aircraft + 1){|x|
+#         Battle.new(attacker.dup.lose_aircraft(x),defender.dup)
+#       }
+#       @probabilities = Array.new(attacker.num_aircraft + 1){||x|
+#         binom(attacker.num_aircraft,x, 1 / 6.0)
+#       }
+#     elsif @bombard
+#       @possibilities = Array.new(attacker.max_bombard_hits + 1) do |x|
+#         Battle.find_or_new(attacker.dup.remove_sea,defender.dup.lose(x))
+#       end
+#       @probabilities = Array.new(attacker.max_bombard_hits + 1) do |x|
+#         attacker.bombard_probability(x)
+#       end
+
+
+
+
+
     end
   end
 
   def prob_attacker_wins
-    unless defined?(@paw)
-      if (@attacker.size != 0) and (@defender.size == 0)
-        @paw = 1
-      elsif @attacker.size == 0
-        @paw = 0
-      elsif @can_single
-        @paw = @attacker.probability(1) * @defender.probability(0) * @normalize
-      else
-        @paw = @possibilities.zip(@probabilities).inject(0){|sum,args| sum + args[0].prob_attacker_wins * args[1]} * @normalize
-#        gen = SyncEnumerator.new(@possibilities,@probabilities)
-#        gen.inject(0){|sum,args| sum + args[0].prob_attacker_wins * args[1]} * @normalize
-      end
-    end
-    @paw
+
   end
   
   def prob_defender_wins
-    unless defined?(@pdw)
-      if (@attacker.size == 0) and (@defender.size != 0)
-        @pdw = 1
-      elsif @defender.size == 0
-        @pdw = 0
-      elsif @can_single
-        @pdw = @attacker.probability(0) * @defender.probability(1) * @normalize
-      else
-        @pdw = @possibilities.zip(@probabilities).inject(0){|sum,args| sum + args[0].prob_defender_wins * args[1]} * @normalize
-#        gen = SyncEnumerator.new(@possibilities,@probabilities)
-#        gen.inject(0){|sum,args| sum + args[0].prob_defender_wins * args[1]} * @normalize
-      end  
-    end
-    @pdw
+
   end
+
   def prob_mutual_annihilation
-    unless defined?(@pma)
-      if (@attacker.size == 0) and (@defender.size == 0)
-        @pma = 1
-      elsif ((@attacker.size == 0) and (@defender.size != 0)) or ((@attacker.size != 0) and (@defender.size == 0))
-        @pma = 0
-      elsif @can_single
-        @pma = @attacker.probability(1) * @defender.probability(1) * @normalize
-      else
-        @pma = @possibilities.zip(@probabilities).inject(0){|sum,args| sum + args[0].prob_mutual_annihilation * args[1]} * @normalize
-#it's a same that SyncEnumerator works so unbelivably poorly, otherwise we could use the following
-#        gen = SyncEnumerator.new(@possibilities,@probabilities)
-#        gen.inject(0){|sum,args| sum + args[0].prob_mutual_annihilation * args[1]} * @normalize
-      end
-    end
-    @pma
+
   end
   
   def testprob
     return self.prob_attacker_wins + self.prob_defender_wins + self.prob_mutual_annihilation
-  end
-  
-  def expected_attacking_army_value
-    unless defined?(@eaav)
-      if @attacker.size == 0
-        @eaav = 0
-      elsif @defender.size == 0
-        @eaav = @attacker.value
-      else
-        @eaav = @possibilities.zip(@probabilities).inject(0){|sum,args| sum + args[0].expected_attacking_army_value * args[1]} * @normalize
-        if @bombard
-          @eaav += @attacker.sea_value #since ships are removed after bombardment
-        end
-      end
-    end
-    @eaav
-  end
-
-  def expected_defending_army_value
-    unless defined?(@edav)
-      if @defender.size == 0
-        @edav = 0
-      elsif @attacker.size == 0
-        @edav = @defender.value
-      else
-        @edav = @possibilities.inject(0){|ev,battle| ev + battle.weight(self.object_id)*battle.expected_defending_army_value} * @normalize
-      end
-    end
-    @edav
-  end
-
-  def expected_IPC_loss_attacker
-    @attacker.value - self.expected_attacking_army_value
-  end
-  def expected_IPC_loss_defender
-    @defender.value - self.expected_defending_army_value
   end
 end
 

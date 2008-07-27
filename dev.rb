@@ -100,7 +100,7 @@ end
 class Battle
   attr_reader :aprobs, :dprobs, :mat, :transmat, :state
   def numcon(i)
-    [@a.size - (i / @a.size), @d.size - (i % (@d.size + 1))]
+    [@a.size - (i / (@a.size + 1)), @d.size - (i % (@d.size + 1))]
   end
 
   def initialize(a,d)
@@ -122,8 +122,8 @@ class Battle
 
     mat = Array.new((@a.size + 1) * (@d.size + 1)){Array.new((@a.size + 1) * (@d.size + 1), 0)}
     for col in (0..(mat.size - 1))
+      ra, rd = numcon(col)
       for row in (col..(mat.size - 1)) #only need consider lower triangle
-        ra, rd = numcon(col)
         ca, cd = numcon(row)
         if (ca == 0) #consider all cases where defence gets >= ra hits
           pd = dprobs[rd][ra..@d.size].inject(0){|s,v| s + v}
@@ -135,21 +135,43 @@ class Battle
         else
           pa = aprobs[ra][rd-cd]
         end
-        mat[row][col] = pd * pa if ((rd - cd) >= 0) and ((ra - ca) >= 0)
+        if (ca == ra) and (cd == rd)
+#puts "mag"
+#puts ((pa * pd) == 1.0)
+         mag = (((pa * pd) < 1.0) ? 1.0 / (1.0 - pa * pd) : 1.0)
+        end
+#print col," ",row," ", ra," ", rd," ", ca," ", cd,"\n"
+#print mag," ",pd," ",pa,"\n"
+        mat[row][col] = mag * pd * pa if ((col != row) or (mag == 1.0)) and ((rd - cd) >= 0) and ((ra - ca) >= 0)
       end
     end
     @transmat = Matrix.rows(mat)
-    state = Array.new(mat.size, 0.0)
-    oldstate = Matrix.column_vector(state.dup)
-    state[0] = 1.0
-    @state = Matrix.column_vector(state)
- count = 0
-    while (((oldstate.transpose * @state)[0,0] / (@state.transpose * @state)[0,0])< 0.99999999)
- puts count
-      oldstate = @state
-      @state = @transmat * @state
-      
- count += 1
+    @state = Array.new(mat.size, 0.0)
+    @state[0] = 1.0
+    state = Matrix.column_vector(@state)
+    for i in 0..mat.size
+      state = @transmat * state
     end
+    @state = state.to_a.flatten
+  end
+  
+  def awins
+    p = 0.0
+    @state.each_index{|i|
+      a, d = numcon(i)
+      p += @state[i] if (d == 0) and (a != 0)
+    }
+    p
+  end
+  def dwins
+    p = 0.0
+    @state.each_index{|i|
+      a, d = numcon(i)
+      p += @state[i] if (a == 0) and (d != 0)
+    }
+    p
+  end
+  def nwins
+    @state[@state.size - 1]
   end
 end

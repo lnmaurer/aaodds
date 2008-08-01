@@ -1,4 +1,9 @@
 require 'matrix'
+require 'rational'
+
+def Integer.to_r
+  Rational(self,1)
+end
 
 def factorial(num)
   if num <= 0
@@ -8,11 +13,9 @@ def factorial(num)
   end
 end
 
-#TODO: there's a faster way to do this... doesn't explicitly use factorial
 def combinations(n,k)
-  #factorial(n).to_f / (factorial(k) * factorial(n - k))
-#works even in nC0 situations
-((n-k+1)..n).inject(1){|p,v| p * v} / factorial(k)
+  #works even in nC0 situations
+  ((n-k+1)..n).inject(1){|p,v| p * v} / factorial(k)
 end
 
 def binom (n,k,prob)
@@ -80,15 +83,16 @@ class Army
   end
   
   def probs
-    p = Array.new(@size + 1, 0.0)
-    p[0] = 1.0
+    p = Array.new(@size + 1, 0)
+    p[0] = 1
     @arr.each_with_index{|num,power|
       pos = Array.new(num + 1,nil)
       for hits in (0..num)
-        pos[hits] = p.rshift(hits).mult(binom(num,hits, (power+1)/6.0))
+        #Rational is used to avoid an annoying rounding error that can occour when calculating mag
+        pos[hits] = p.rshift(hits).mult(binom(num,hits, Rational(power + 1, 6)))
       end
       p.size.times{|x|
-        p[x] = 0
+        p[x] = 0.to_r 
         pos.size.times{|y|
           p[x] += pos[y][x]
         }
@@ -100,7 +104,7 @@ end
 
 
 class Battle
-  attr_reader :aprobs, :dprobs, :mat, :transmat, :state
+  attr_reader :aprobs, :dprobs, :mat, :transmat, :state, :t
   def numcon(i)
     [@a.size - (i / (@d.size + 1)), @d.size - (i % (@d.size + 1))]
   end
@@ -112,18 +116,22 @@ class Battle
   def initialize(a,d)
     @a = a
     @d = d
-puts "calculating probabilities"    
-    @aprobs = Array.new(a.size + 1,nil)
+    
+    start = Time.now.to_f
+    
+    puts "calculating attacker probabilities"    
+    aprobs = Array.new(a.size + 1,nil)
     for i in (0..@a.size)
       #the second array is to keep everything the same length
-      aprobs[i] = a.probs + Array.new(max(@a.size,@d.size) - a.size, 0.0)
+      aprobs[i] = a.probs + Array.new(max(@a.size,@d.size) - a.size, 0)
       a = a.loseone
     end
     aprobs.reverse!
         
-    @dprobs = Array.new(d.size + 1,nil)
+    puts "calculating defender probabilities"
+    dprobs = Array.new(d.size + 1,nil)
     for i in (0..@d.size)
-      dprobs[i] = d.probs + Array.new(max(@a.size,@d.size) - d.size, 0.0)
+      dprobs[i] = d.probs + Array.new(max(@a.size,@d.size) - d.size, 0)
       d = d.loseone
     end
     dprobs.reverse!
@@ -138,87 +146,87 @@ puts "calculating probabilities"
 #column to compensate. That way, instead of taking an infinite number of rolls
 #to converge, it will coverge in finite time -- less than the number of states.
 
-puts "creating transition matrix"
+    puts "creating transition matrix (#{(@a.size + 1) * (@d.size + 1)} columns)"
 
     mat = Array.new((@a.size + 1) * (@d.size + 1)){Array.new((@a.size + 1) * (@d.size + 1), 0)}
-#mat2 = Array.new((@a.size + 1) * (@d.size + 1)){Array.new((@a.size + 1) * (@d.size + 1), 0)}
     for col in (0..(mat.size - 1))
+      print "#{col + 1} "
       ra, rd = numcon(col)
       for row in (col..(mat.size - 1)) #only need consider lower triangle
         ca, cd = numcon(row)
         
         if (ca == 0) #consider all cases where defence gets >= ra hits
           #[ra..@d.size] returns the same thing as [ra..(d.size-1)]
-          pd = @dprobs[rd][ra..@d.size].inject(0){|s,v| s + v}
+          pd = dprobs[rd][ra..@d.size].inject(0.to_r){|s,v| s + v}
         elsif (ra - ca) >= 0 #can't have more people after than before
-          pd = @dprobs[rd][ra-ca]
+          pd = dprobs[rd][ra-ca]
         else
-          pd = 0.0
+          pd = 0
         end
         
         if (cd == 0) #consider all cases where defence gets >= rd hits
-          pa = @aprobs[ra][rd..@a.size].inject(0){|s,v| s + v}
+          pa = aprobs[ra][rd..@a.size].inject(0.to_r){|s,v| s + v}
         elsif (rd - cd) >= 0 #can't have more people after than before
-          pa = @aprobs[ra][rd-cd]
+          pa = aprobs[ra][rd-cd]
         else
-          pa = 0.0
+          pa = 0
         end
         
         if (ca == ra) and (cd == rd)
          #sometimes this is the only non-zero entry in a column
          #in that case, have mag = 1.0 to signal that
-         mag = (((pa * pd) < 1.0) ? 1.0 / (1.0 - pa * pd) : 1.0)
-if mag > 2
-print pa," ", pa == 1.0," ", pd," ",pd == 1.0," ", pa*pd," ",pa*pd < 1.0,"\n"
-end
-        end
-#mat2[row][col] = pa * pd        
-
-#print col," ",row," ", ra," ", rd," ", ca," ", cd,"\n"
-#print mag," ",pd," ",pa,"\n"        
+         mag = (((pa * pd) < 1) ? 1 / (1 - pa * pd) : 1)
+        end 
 
         #assign value if not in a diagonal or if the diagonal is the only non-zero term
-        if (col != row) or (mag == 1.0)
+        if (col != row) or (mag == 1)
           mat[row][col] = mag * pd * pa
         end
         #it's already zero otherwise
       end
     end
-    @transmat = Matrix.rows(mat)
-#@transmat = Matrix.rows(mat2)
+    print "\n"
+    @transmat = Matrix.rows(mat.collect{|arr| arr.collect{|el| el.to_f}})
+
+#each rep will cause at least one unit to be lost, which requires @a.size + @d.size
+#steps, hovever, not all units need be eliminated (only all the units of one side)
+#so we can do one less battle (the '-1')
+    reps = @a.size + @d.size - 1
+    puts "solving with matrix: 1..#{reps}"
+
     #state contains the solution to the markov chain
-#    @state = Array.new(mat.size, 0.0)
-#    @state[0] = 1.0
-#    state = Matrix.column_vector(@state)
-
-puts "solving matrix"
-
-@state = Vector.elements(Array.new(mat.size){|i| i == 0 ? 1.0 : 0.0})
-    for i in 0..mat.size
-#      state = @transmat * state
-@state = @transmat * @state
-    end
-@state = @state.to_a
-#    @state = state.to_a.flatten
+    @state = Vector.elements(Array.new(mat.size){|i| i == 0 ? 1.0 : 0.0})
+    1.upto(reps){|i|
+      print i, " "
+      @state = @transmat * @state
+    }
+    print "\n"
+#TODO: impliment Vector.each_with_index so we don't have to do this next line
+    @state = @state.to_a
+@t = Time.now.to_f - start
+    puts "Operation completed in #{@t} seconds"
   end
   
   def awins
-    p = 0.0
-    @state.each_index{|i|
+    prob = 0.0
+    @state.each_with_index{|p,i|
       a, d = numcon(i)
-      p += @state[i] if (d == 0) and (a != 0)
+      prob += p if (d == 0) and (a != 0)
     }
-    p
+    prob
   end
   def dwins
-    p = 0.0
-    @state.each_index{|i|
+    prob = 0.0
+    @state.each_with_index{|p,i|
       a, d = numcon(i)
-      p += @state[i] if (a == 0) and (d != 0)
+      prob += p if (a == 0) and (d != 0)
     }
-    p
+    prob
   end
   def nwins
-    @state[@state.size - 1]
+    @state[-1]
+  end
+  def tprob
+    awins + dwins + nwins
   end
 end

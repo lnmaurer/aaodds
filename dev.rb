@@ -5,6 +5,10 @@ def Integer.to_r
   Rational(self,1)
 end
 
+def Vector.each_with_index
+  @elements.each_with_index{|o,i| yield o, i}
+end
+
 def factorial(num)
   if num <= 0
     1
@@ -118,12 +122,12 @@ class Battle
     @d = d
     
     start = Time.now.to_f
-    
+
+#TODO: calculate army IPCs here as well    
     puts "calculating attacker probabilities"    
     aprobs = Array.new(a.size + 1,nil)
     for i in (0..@a.size)
-      #the second array is to keep everything the same length
-      aprobs[i] = a.probs + Array.new(max(@a.size,@d.size) - a.size, 0)
+      aprobs[i] = a.probs
       a = a.loseone
     end
     aprobs.reverse!
@@ -131,7 +135,7 @@ class Battle
     puts "calculating defender probabilities"
     dprobs = Array.new(d.size + 1,nil)
     for i in (0..@d.size)
-      dprobs[i] = d.probs + Array.new(max(@a.size,@d.size) - d.size, 0)
+      dprobs[i] = d.probs
       d = d.loseone
     end
     dprobs.reverse!
@@ -148,30 +152,33 @@ class Battle
 
     puts "creating transition matrix (#{(@a.size + 1) * (@d.size + 1)} columns)"
 
-    mat = Array.new((@a.size + 1) * (@d.size + 1)){Array.new((@a.size + 1) * (@d.size + 1), 0)}
+    mat = Array.new((@a.size + 1) * (@d.size + 1)){Array.new((@a.size + 1) * (@d.size + 1), 0.0)}
     for col in (0..(mat.size - 1))
       print "#{col + 1} "
       ra, rd = numcon(col)
       for row in (col..(mat.size - 1)) #only need consider lower triangle
         ca, cd = numcon(row)
         
-        if (ca == 0) #consider all cases where defence gets >= ra hits
+        #consider all cases where defence gets >= ra hits if they can get that many
+        if (ca == 0) and (rd >= ra)
           #[ra..@d.size] returns the same thing as [ra..(d.size-1)]
-          pd = dprobs[rd][ra..@d.size].inject(0.to_r){|s,v| s + v}
-        elsif (ra - ca) >= 0 #can't have more people after than before
+          pd = dprobs[rd][ra..@d.size].inject{|s,v| s + v}
+        #make sure that the battle is possible -- there aren't more units
+        #before than after and the defence can get enough hits
+        elsif ((ra - ca) >= 0) and ((ra - ca) <= rd)
           pd = dprobs[rd][ra-ca]
-        else
+        else #if neither of the above cases work, it can't happen
           pd = 0
         end
-        
-        if (cd == 0) #consider all cases where defence gets >= rd hits
-          pa = aprobs[ra][rd..@a.size].inject(0.to_r){|s,v| s + v}
-        elsif (rd - cd) >= 0 #can't have more people after than before
+              
+        if (cd == 0) and (ra >= rd)
+          pa = aprobs[ra][rd..@a.size].inject{|s,v| s + v}
+        elsif ((rd - cd) >= 0) and ((rd - cd) <= ra)
           pa = aprobs[ra][rd-cd]
         else
           pa = 0
         end
-        
+     
         if (ca == ra) and (cd == rd)
          #sometimes this is the only non-zero entry in a column
          #in that case, have mag = 1.0 to signal that
@@ -180,13 +187,13 @@ class Battle
 
         #assign value if not in a diagonal or if the diagonal is the only non-zero term
         if (col != row) or (mag == 1)
-          mat[row][col] = mag * pd * pa
+          mat[row][col] = (mag * pd * pa).to_f
         end
         #it's already zero otherwise
       end
     end
     print "\n"
-    @transmat = Matrix.rows(mat.collect{|arr| arr.collect{|el| el.to_f}})
+    @transmat = Matrix.rows(mat)
 
 #each rep will cause at least one unit to be lost, which requires @a.size + @d.size
 #steps, hovever, not all units need be eliminated (only all the units of one side)

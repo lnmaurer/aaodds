@@ -5,8 +5,10 @@ def Integer.to_r
   Rational(self,1)
 end
 
-def Vector.each_with_index
-  @elements.each_with_index{|o,i| yield o, i}
+class Vector
+  def each_with_index
+    @elements.each_with_index{|o,i| yield o, i}
+  end
 end
 
 def factorial(num)
@@ -161,8 +163,7 @@ class Battle
         
         #consider all cases where defence gets >= ra hits if they can get that many
         if (ca == 0) and (rd >= ra)
-          #[ra..@d.size] returns the same thing as [ra..(d.size-1)]
-          pd = dprobs[rd][ra..@d.size].inject{|s,v| s + v}
+          pd = dprobs[rd][ra..-1].inject{|s,v| s + v}
         #make sure that the battle is possible -- there aren't more units
         #before than after and the defence can get enough hits
         elsif ((ra - ca) >= 0) and ((ra - ca) <= rd)
@@ -172,7 +173,7 @@ class Battle
         end
               
         if (cd == 0) and (ra >= rd)
-          pa = aprobs[ra][rd..@a.size].inject{|s,v| s + v}
+          pa = aprobs[ra][rd..-1].inject{|s,v| s + v}
         elsif ((rd - cd) >= 0) and ((rd - cd) <= ra)
           pa = aprobs[ra][rd-cd]
         else
@@ -181,7 +182,7 @@ class Battle
      
         if (ca == ra) and (cd == rd)
          #sometimes this is the only non-zero entry in a column
-         #in that case, have mag = 1.0 to signal that
+         #in that case, have mag = 1 to signal that
          mag = (((pa * pd) < 1) ? 1 / (1 - pa * pd) : 1)
         end 
 
@@ -208,8 +209,7 @@ class Battle
       @state = @transmat * @state
     }
     print "\n"
-#TODO: impliment Vector.each_with_index so we don't have to do this next line
-    @state = @state.to_a
+
 @t = Time.now.to_f - start
     puts "Operation completed in #{@t} seconds"
   end

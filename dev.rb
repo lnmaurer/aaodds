@@ -67,35 +67,149 @@ class Array
 end
 
 
+class Unit
+  attr_reader :value, :attack, :defend
+  def initialize(attack, defend, value, attacking)
+    @attack = attack
+    @defend = defend
+    @value = value
+    @attacking = attacking
+  end
+  def power
+    @attacking ? @attack : @defend
+  end
+end
+
+class Infantry < Unit
+  def initialize(a)
+    super(1,2,3,a)
+  end
+  def two_power
+    @attack = 2
+  end
+  def dup
+    Infantry.new(@attacking)
+  end
+end
+
+class Tank < Unit
+  def initialize(a)
+    super(3,3,5,a)
+  end
+  def dup
+    Tank.new(@attacking)
+  end
+end
+
+class Artillery < Unit
+  def initialize(a)
+    super(2,2,4,a)
+  end
+  def dup
+    Artillery.new(@attacking)
+  end
+end
+
+class Fighter < Unit
+  def initialize(a,jet=false)
+    if jet
+      super(3,5,10,a)
+    else
+      super(3,4,10,a)
+    end
+  end
+  def dup
+    Fighter.new(@attacking,@defence == 5)
+  end
+end
+
+class Bomber < Unit
+  attr_reader :heavy
+  def initialize(a,heavy=false)
+    @heavy = heavy and a
+    super(4,1,15,a)
+  end
+  def dup
+    Bomber.new(@attacking,@heavy)
+  end
+end
+
+class Destroyer < Unit
+  def initialize(a)
+    super(3,3,12,a)
+  end
+  def dup
+    Destroyer.new(@attacking)
+  end
+end
+
+class Battleship < Unit
+  def initialize(a)
+    super(4,4,24,a)
+  end
+  def dup
+    Battleship.new(@attacking)
+  end
+end
+
+class Carrier < Unit
+  def initialize(a)
+    super(1,3,16,a)
+  end
+  def dup
+    Carrier.new(@attacking)
+  end
+end
+
+class Transport < Unit
+  def initialize(a)
+    super(0,1,8,a)
+  end
+  def dup
+    Transport.new(@attacking)
+  end
+end
+
+class Sub < Unit
+  def initialize(a,sup = false)
+    if sup
+      super(3,2,8,a)
+    else
+      super(2,2,8,a)
+    end
+  end
+  def dup
+    Sub.new(@attacking)
+  end
+end
+
 class Army
-  attr_reader :size
+  attr_reader :size, :hits
   
   def initialize(arr)
-    @arr = arr #contains a count of the powers of the units
-    @size = @arr.inject(0){|sum, num| sum + num}
+    @arr = arr #contains the units in reverse loss order
+    @size = @arr.size
+    @hits = @arr.inject(0){|sum, unit| sum + ((unit.is_a?(Bomber) and unit.heavy) ? 2 : 1)}
+#TODO: infantry pairing
   end
   
   def loseone
-    removed = false
-    narr = @arr.collect{|n|
-      if (n > 0) and (! removed)
-        removed = true
-        n - 1
-      else
-        n
-      end
-    }
+    narr = @arr.collect{|unit| unit.dup}
+    narr.pop
     Army.new(narr)
   end
   
   def probs
+#TODO: change over to using hits instead of size
     p = Array.new(@size + 1, 0)
     p[0] = 1
-    @arr.each_with_index{|num,power|
+    powers = Array.new(7,0)
+    @arr.each{|unit| powers[unit.power] += 1}
+    powers.each_with_index{|num,power|
       pos = Array.new(num + 1,nil)
       for hits in (0..num)
         #Rational is used to avoid an annoying rounding error that can occour when calculating mag
-        pos[hits] = p.rshift(hits).mult(binom(num,hits, Rational(power + 1, 6)))
+        pos[hits] = p.rshift(hits).mult(binom(num,hits, Rational(power, 6)))
       end
       p.size.times{|x|
         p[x] = 0.to_r 

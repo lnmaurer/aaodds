@@ -1,5 +1,6 @@
 require 'matrix'
 require 'rational'
+require 'tkextlib/tile'
 
 def Integer.to_r
   Rational(self,1)
@@ -350,4 +351,72 @@ class Battle
   def tprob
     awins + dwins + nwins
   end
+end
+
+class BattleGUI
+  def initialize
+    @root = TkRoot.new() {title 'Battle Calculator'}
+    tframe = TkLabelFrame.new(@root){ text 'Technology' }.grid('column'=>0,'row'=> 0,'columnspan'=>2, 'sticky'=>'nsew', 'padx'=>5, 'pady'=>5)
+    aframe = TkLabelFrame.new(@root){ text 'Attackers' }.grid('column'=>0,'row'=> 1, 'padx'=>5, 'pady'=>5)
+    dframe = TkLabelFrame.new(@root){ text 'Defenders' }.grid('column'=>1,'row'=> 1, 'padx'=>5, 'pady'=>5)
+    cframe = TkLabelFrame.new(@root){ text 'Controls' }.grid('column'=>0,'row'=> 2,'columnspan'=>2, 'sticky'=>'nsew', 'padx'=>5, 'pady'=>5)
+
+    #techs
+    TkLabel.new(tframe, 'text'=>"AA gun").grid('column'=>0,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @aaGun = TkCheckButton.new(tframe).grid('column'=>1,'row'=> 0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    TkLabel.new(tframe, 'text'=>"Hv. Bombers").grid('column'=>2,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @heavyBombers = TkCheckButton.new(tframe).grid('column'=>3,'row'=> 0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    TkLabel.new(tframe, 'text'=>"Comb. Bom.").grid('column'=>0,'row'=>1, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @combinedBombardment = TkCheckButton.new(tframe).grid('column'=>1,'row'=> 1, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    TkLabel.new(tframe, 'text'=>"Jets").grid('column'=>2,'row'=>1, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @jets = TkCheckButton.new(tframe).grid('column'=>3,'row'=> 1, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    TkLabel.new(tframe, 'text'=>"Super Subs").grid('column'=>0,'row'=>2, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @superSubs = TkCheckButton.new(tframe).grid('column'=>1,'row'=> 2, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    
+    #attackers
+    row = -1
+    @aunits = ['Infantry', 'Tank', 'Artillery', 'Fighter', 'Bomber','Destroyer','Battleship','Carrier','Transport','Sub'].collect { |label|
+      TkLabel.new(aframe, 'text'=>label).grid('column'=>1,'row'=> (row +=1), 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+      TkSpinbox.new(aframe,'to'=>100, 'from'=>0, 'width'=>3).grid('column'=>2,'row'=> row, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    }
+    @alist = TkListbox.new(aframe,'height' => 12).grid('column'=>3, 'row'=>0,'rowspan'=>8, 'padx'=>5, 'pady'=>5)
+    @aup = TkButton.new(aframe,'text'=>'Up').grid('column'=>3, 'row'=>8, 'padx'=>5, 'pady'=>5)
+    @adown = TkButton.new(aframe,'text'=>'Down').grid('column'=>3, 'row'=>9, 'padx'=>5, 'pady'=>5)
+
+    #defenders
+    row = -1
+    @dunits = ['Infantry', 'Tank', 'Artillery', 'Fighter', 'Bomber','Destroyer','Battleship','Carrier','Transport','Sub'].collect { |label|
+      TkLabel.new(dframe, 'text'=>label).grid('column'=>1,'row'=> (row +=1), 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+      TkSpinbox.new(dframe,'to'=>100, 'from'=>0, 'width'=>3).grid('column'=>2,'row'=> row, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    }
+    @dlist = TkListbox.new(dframe,'height' => 12).grid('column'=>3, 'row'=>0,'rowspan'=>8, 'padx'=>5, 'pady'=>5)
+    @dup = TkButton.new(dframe,'text'=>'Up').grid('column'=>3, 'row'=>8, 'padx'=>5, 'pady'=>5)
+    @ddown = TkButton.new(dframe,'text'=>'Down').grid('column'=>3, 'row'=>9, 'padx'=>5, 'pady'=>5)
+   
+    #controls
+    TkLabel.new(cframe, 'text'=>"Attacker wins").grid('column'=>0,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @attackerProb = TkVariable.new()
+    TkEntry.new(cframe, 'width'=>30, 'relief'=>'sunken','textvariable' =>@attackerProb).grid('column'=>1,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+
+    TkLabel.new(cframe, 'text'=>"Defender wins").grid('column'=>0,'row'=>1, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @defenderProb = TkVariable.new()
+    TkEntry.new(cframe, 'width'=>30, 'relief'=>'sunken','textvariable' =>@defenderProb).grid('column'=>1,'row'=>1, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+
+    TkLabel.new(cframe, 'text'=>"Mutual annihilation").grid('column'=>0,'row'=>2, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @annihilationProb = TkVariable.new()
+    TkEntry.new(cframe, 'width'=>30, 'relief'=>'sunken','textvariable' =>@annihilationProb).grid('column'=>1,'row'=>2, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+
+    TkLabel.new(cframe, 'text'=>"Sum").grid('column'=>0,'row'=>3, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @sumProb = TkVariable.new()
+    TkEntry.new(cframe, 'width'=>30, 'relief'=>'sunken','textvariable' =>@sumProb).grid('column'=>1,'row'=>3, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+
+    @calculate = TkButton.new(cframe,'text'=>'Calculate').grid('column'=>3, 'row'=>0, 'padx'=>5, 'pady'=>5)
+
+  end
+
+end
+
+if __FILE__ == $0
+  BattleGUI.new
+  Tk.mainloop()
 end

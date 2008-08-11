@@ -91,7 +91,7 @@ class Infantry < Unit
   def two_power
     @attack = 2
   end
-  def dup
+  def dup #note that attack upgrades are not dupped
     Infantry.new(@attacking)
   end
 end
@@ -194,7 +194,10 @@ class Army
     @arr = arr #contains the units in reverse loss order
     @size = @arr.size
     @hits = @arr.inject(0){|sum, unit| sum + ((unit.is_a?(Bomber) and unit.heavy) ? 2 : 1)}
-#TODO: infantry pairing
+    #infantry pairing
+    inf = @arr.find_all{|unit| unit.is_a?(Infantry)}
+    numart = @arr.inject(0){|sum,unit| sum + (unit.is_a?(Artillery) ? 1 : 0)}
+    inf.each_with_index{|inf,i| inf.two_power if i < numart}
   end
   
   def loseone
@@ -242,9 +245,10 @@ class Battle
     @d = d
     
     start = Time.now.to_f
-
+    $gui.reset_console if __FILE__ == $0  
 #TODO: calculate army IPCs here as well    
-    puts "calculating attacker probabilities"    
+    puts "calculating attacker probabilities" if __FILE__ != $0  
+    $gui.print_to_console("calculating attacker probabilities\n") if __FILE__ == $0    
     aprobs = Array.new(a.size + 1,nil)
     for i in (0..@a.size)
       aprobs[i] = a.probs
@@ -252,7 +256,8 @@ class Battle
     end
     aprobs.reverse!
         
-    puts "calculating defender probabilities"
+    puts "calculating defender probabilities" if __FILE__ != $0  
+    $gui.print_to_console("calculating defender probabilities\n") if __FILE__ == $0    
     dprobs = Array.new(d.size + 1,nil)
     for i in (0..@d.size)
       dprobs[i] = d.probs
@@ -270,11 +275,13 @@ class Battle
 #column to compensate. That way, instead of taking an infinite number of rolls
 #to converge, it will coverge in finite time -- less than the number of states.
 
-    puts "creating transition matrix (#{(@a.size + 1) * (@d.size + 1)} columns)"
+    puts "creating transition matrix (#{(@a.size + 1) * (@d.size + 1)} columns)" if __FILE__ != $0  
+    $gui.print_to_console("creating transition matrix (#{(@a.size + 1) * (@d.size + 1)} columns)\n") if __FILE__ == $0  
 
     mat = Array.new((@a.size + 1) * (@d.size + 1)){Array.new((@a.size + 1) * (@d.size + 1), 0.0)}
     for col in (0..(mat.size - 1))
-      print "#{col + 1} "
+      print "#{col + 1} " if __FILE__ != $0  
+      $gui.print_to_console("#{col + 1} ") if __FILE__ == $0  
       ra, rd = numcon(col)
       for row in (col..(mat.size - 1)) #only need consider lower triangle
         ca, cd = numcon(row)
@@ -311,27 +318,55 @@ class Battle
         #it's already zero otherwise
       end
     end
-    print "\n"
+    print "\n" if __FILE__ != $0  
+    $gui.print_to_console("\n") if __FILE__ == $0  
     @transmat = Matrix.rows(mat)
 
 #each rep will cause at least one unit to be lost, which requires @a.size + @d.size
 #steps, hovever, not all units need be eliminated (only all the units of one side)
 #so we can do one less battle (the '-1')
     reps = @a.size + @d.size - 1
-    puts "solving with matrix: 1..#{reps}"
+    puts "solving with matrix: 1..#{reps}" if __FILE__ != $0  
+    $gui.print_to_console("solving with matrix: 1..#{reps}\n") if __FILE__ == $0  
 
     #state contains the solution to the markov chain
     @state = Vector.elements(Array.new(mat.size){|i| i == 0 ? 1.0 : 0.0})
     1.upto(reps){|i|
-      print i, " "
+      print i, " " if __FILE__ != $0  
+      $gui.print_to_console("#{i} ") if __FILE__ == $0  
       @state = @transmat * @state
     }
-    print "\n"
+    print "\n" if __FILE__ != $0  
+    $gui.print_to_console("\n") if __FILE__ == $0  
 
-@t = Time.now.to_f - start
-    puts "Operation completed in #{@t} seconds"
+    @t = Time.now.to_f - start
+    puts "Operation completed in #{@t} seconds" if __FILE__ != $0  
+    $gui.print_to_console("Operation completed in #{@t} seconds\n") if __FILE__ == $0  
   end
-  
+  def acumprobs
+    probs = Array.new(@a.size, 0.0)
+    @state.each_with_index{|p,i|
+      a, d = numcon(i)
+      probs[a-1] += p if (d == 0) and (a != 0)
+    }
+    cdf = Array.new
+    for i in (0..probs.size - 1)
+      cdf[i] = probs[i..-1].inject{|s,p| s + p}
+    end
+    cdf    
+  end
+  def dcumprobs
+    probs = Array.new(@d.size, 0.0)
+    @state.each_with_index{|p,i|
+      a, d = numcon(i)
+      probs[d-1] += p if (a == 0) and (d != 0)
+    }
+    cdf = Array.new
+    for i in (0..probs.size - 1)
+      cdf[i] = probs[i..-1].inject{|s,p| s + p}
+    end
+    cdf    
+  end  
   def awins
     prob = 0.0
     @state.each_with_index{|p,i|
@@ -358,24 +393,19 @@ end
 
 class BattleGUI
   def initialize
-    @root = TkRoot.new() {title 'Battle Calculator'}
-    tframe = TkLabelFrame.new(@root){ text 'Technology' }.grid('column'=>0,'row'=> 0,'columnspan'=>2, 'sticky'=>'nsew', 'padx'=>5, 'pady'=>5)
-    aframe = TkLabelFrame.new(@root){ text 'Attackers' }.grid('column'=>0,'row'=> 1, 'padx'=>5, 'pady'=>5)
-    dframe = TkLabelFrame.new(@root){ text 'Defenders' }.grid('column'=>1,'row'=> 1, 'padx'=>5, 'pady'=>5)
-    cframe = TkLabelFrame.new(@root){ text 'Controls' }.grid('column'=>0,'row'=> 2,'columnspan'=>2, 'sticky'=>'nsew', 'padx'=>5, 'pady'=>5)
-
-    #techs
-    TkLabel.new(tframe, 'text'=>"AA gun").grid('column'=>0,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    @aaGun = TkCheckButton.new(tframe).grid('column'=>1,'row'=> 0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    TkLabel.new(tframe, 'text'=>"Hv. Bombers").grid('column'=>2,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    @heavyBombers = TkCheckButton.new(tframe).grid('column'=>3,'row'=> 0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    TkLabel.new(tframe, 'text'=>"Comb. Bom.").grid('column'=>4,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    @combinedBombardment = TkCheckButton.new(tframe).grid('column'=>5,'row'=> 0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    TkLabel.new(tframe, 'text'=>"Jets").grid('column'=>6,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    @jets = TkCheckButton.new(tframe).grid('column'=>7,'row'=> 0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    TkLabel.new(tframe, 'text'=>"Super Subs").grid('column'=>8,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    @superSubs = TkCheckButton.new(tframe).grid('column'=>9,'row'=> 0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @root = TkRoot.new(:title=>'Battle Calculator')
+    tframe = TkLabelFrame.new(@root,:text=>'Technology').grid(:column=>0,:row=>0,:columnspan=>2,:sticky=>'nsew',:padx=>5,:pady=>5)
+    aframe = TkLabelFrame.new(@root,:text=>'Attackers').grid(:column=>0,:row=>1,:padx=>5,:pady=>5)
+    dframe = TkLabelFrame.new(@root,:text=>'Defenders').grid(:column=>1,:row=>1,:padx=>5,:pady=>5)
+    cframe = TkLabelFrame.new(@root,:text=>'Controls').grid(:column=>0,:row=>2,:columnspan=>2,:sticky=>'nsew',:padx=>5,:pady=>5)
+    consoleframe = TkLabelFrame.new(@root,:text=>'Console').grid(:column=>0,:row=>3,:columnspan=>2,:sticky=>'nsew',:padx=>5,:pady=>5)
     
+    #console
+    cyscroll = proc{|*args| @cscrollb.set(*args)}
+    cscroll = proc{|*args| @console.yview(*args)}
+    @console = TkText.new(consoleframe,:yscrollcommand=>cyscroll,:width=>80,:height=>10).grid(:column=>0,:row=>0,:padx=>5,:pady=>5)
+    @cscrollb = TkScrollbar.new(consoleframe,:orient=>'vertical',:command=>cscroll).grid(:column=>1,:row=>0,:padx=>5,:sticky=>'ns')
+
     #attackers
     aclear = proc {
       @aunitsnums.each{|sbox| sbox.set("0")}
@@ -384,7 +414,7 @@ class BattleGUI
     aunitup = proc{
       index = @alist.curselection[0]
       if (index != nil) and (index > 0)
-        if (@aunits[index].value < @aunits[index-1].value) or (@aunits[index].power < @aunits[index-1].power) or @aunits[index].is_a?(Transport) or (@aunits[index] == @aunits[index-1])
+#        if (@aunits[index].value < @aunits[index-1].value) or (@aunits[index].power < @aunits[index-1].power) or @aunits[index].is_a?(Transport) or (@aunits[index] == @aunits[index-1])
           temp = @aunits[index-1]
           @aunits[index-1] = @aunits[index]
           @aunits[index] = temp
@@ -392,13 +422,13 @@ class BattleGUI
           @alist.see(index - 1)
           @alist.selection_clear(index)
           @alist.selection_set(index - 1)
-        end
+#        end
       end
     }
     aunitdown = proc{
       index = @alist.curselection[0]
       if (index != nil) and (@aunits.size > 1) and (index < (@aunits.size - 1))
-        if (@aunits[index].value > @aunits[index+1].value) or (@aunits[index].power > @aunits[index+1].power) or @aunits[index].is_a?(Transport) or (@aunits[index] == @aunits[index+1])
+#        if (@aunits[index].value > @aunits[index+1].value) or (@aunits[index].power > @aunits[index+1].power) or @aunits[index].is_a?(Transport) or (@aunits[index] == @aunits[index+1])
           temp = @aunits[index+1]
           @aunits[index+1] = @aunits[index]
           @aunits[index] = temp
@@ -406,7 +436,7 @@ class BattleGUI
           @alist.see(index + 1)
           @alist.selection_clear(index)
           @alist.selection_set(index + 1)
-        end
+ #       end
       end     
     }
     aenableother = proc{
@@ -471,7 +501,7 @@ class BattleGUI
     dunitup = proc{
       index = @dlist.curselection[0]
       if (index != nil) and (index > 0)
-        if (@dunits[index].value < @dunits[index-1].value) or (@dunits[index].power < @dunits[index-1].power) or @dunits[index].is_a?(Transport) or (@dunits[index] == @dunits[index-1])
+#        if (@dunits[index].value < @dunits[index-1].value) or (@dunits[index].power < @dunits[index-1].power) or @dunits[index].is_a?(Transport) or (@dunits[index] == @dunits[index-1])
           temp = @dunits[index-1]
           @dunits[index-1] = @dunits[index]
           @dunits[index] = temp
@@ -479,13 +509,13 @@ class BattleGUI
           @dlist.see(index - 1)
           @dlist.selection_clear(index)
           @dlist.selection_set(index - 1)
-        end
+#        end
       end
     }
     dunitdown = proc{
       index = @dlist.curselection[0]
       if (index != nil) and (@dunits.size > 1) and (index < (@dunits.size - 1))
-        if (@dunits[index].value > @dunits[index+1].value) or (@dunits[index].power > @dunits[index+1].power) or @dunits[index].is_a?(Transport) or (@dunits[index] == @dunits[index+1])
+#        if (@dunits[index].value > @dunits[index+1].value) or (@dunits[index].power > @dunits[index+1].power) or @dunits[index].is_a?(Transport) or (@dunits[index] == @dunits[index+1])
           temp = @dunits[index+1]
           @dunits[index+1] = @dunits[index]
           @dunits[index] = temp
@@ -493,7 +523,7 @@ class BattleGUI
           @dlist.see(index + 1)
           @dlist.selection_clear(index)
           @dlist.selection_set(index + 1)
-        end
+#        end
       end     
     }
     denableother = proc{
@@ -550,6 +580,28 @@ class BattleGUI
     TkButton.new(dframe,'text'=>'Clear','command'=>dclear).grid('column'=>2, 'row'=>10, 'padx'=>5)
    
     #controls
+    about = proc {Tk.messageBox('type' => 'ok',
+      'icon' => 'info',
+      'title' => 'About',
+      'message' => "Aacalc revision 52\n" + 
+      "Copyright (C) 2008 Leon N. Maurer\n" +
+      'https://launchpad.net/aacalc' + "\n" +
+      "Source code available under the GNU Public License.\n" +
+      "See the Readme for information about the controls."
+    )}
+    calc = proc{
+#TODO: aa guns and bombard
+      @a = Army.new(@aunits.reverse)
+      @d = Army.new(@dunits.reverse)
+      @b = Battle.new(@a,@d)
+      @attackerProb.value = @b.awins.to_s
+      @defenderProb.value = @b.dwins.to_s
+      @annihilationProb.value = @b.nwins.to_s
+      @sumProb.value = @b.tprob.to_s
+      @anames.value = @anames.list.collect{|s|s.split[0]}.zip(@b.acumprobs).collect{|a| a[0] + ' ' + a[1].to_s}
+      @dnames.value = @dnames.list.collect{|s|s.split[0]}.zip(@b.dcumprobs).collect{|a| a[0] + ' ' + a[1].to_s}
+    }
+   
     TkLabel.new(cframe, 'text'=>"Attacker wins").grid('column'=>0,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     @attackerProb = TkVariable.new()
     TkEntry.new(cframe, 'width'=>30, 'relief'=>'sunken','textvariable' =>@attackerProb).grid('column'=>1,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
@@ -566,13 +618,27 @@ class BattleGUI
     @sumProb = TkVariable.new()
     TkEntry.new(cframe, 'width'=>30, 'relief'=>'sunken','textvariable' =>@sumProb).grid('column'=>1,'row'=>3, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
 
-    @calculate = TkButton.new(cframe,'text'=>'Calculate').grid('column'=>3, 'row'=>0, 'padx'=>5, 'pady'=>5)
+    @calculate = TkButton.new(cframe,'text'=>'Calculate','command'=>calc).grid('column'=>3, 'row'=>0, 'padx'=>5, 'pady'=>5)
+    TkButton.new(cframe,:text=>'About This Program',:command=>about).grid('column'=>3, 'row'=>3, 'padx'=>5, 'pady'=>5)
 
+    #techs
+    @aaGun = TkCheckButton.new(tframe,:text=>"AA gun").grid(:column=>0,:row=>0,:padx=>5,:pady=>5)
+    @heavyBombers = TkCheckButton.new(tframe,:text=>"Hv. Bombers",:command=>@aupdate).grid(:column=>1,:row=>0,:padx=>5,:pady=>5)
+    @combinedBombardment = TkCheckButton.new(tframe,:text=>"Comb. Bom.").grid(:column=>2,:row=>0,:padx=>5,:pady=>5)
+    @jets = TkCheckButton.new(tframe,:text=>"Jets",:command=>@dupdate).grid(:column=>3,:row=>0,:padx=>5,:pady=>5)
+    @superSubs = TkCheckButton.new(tframe,:text=>"Super Subs",:command=>@aupdate).grid(:column=>4,:row=>0,:padx=>5,:pady=>5)
   end
-
+  def print_to_console(s)
+    @console.insert('end',s)
+    @console.see('end')
+    Tk.update
+  end
+  def reset_console
+    @console.delete(0.0,'end')
+  end
 end
 
 if __FILE__ == $0
-  BattleGUI.new
+  $gui = BattleGUI.new
   Tk.mainloop()
 end

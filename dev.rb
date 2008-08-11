@@ -156,6 +156,15 @@ class Battleship < Unit
   end
 end
 
+class Bship1stHit < Unit
+  def initialize(a)
+    super(0,0,0,a)
+  end
+  def dup
+    Bship1stHit.new(@attacking)
+  end
+end
+
 class Carrier < Unit
   def initialize(a)
     super(1,3,16,a)
@@ -415,6 +424,7 @@ class BattleGUI
       index = @alist.curselection[0]
       if (index != nil) and (index > 0)
 #        if (@aunits[index].value < @aunits[index-1].value) or (@aunits[index].power < @aunits[index-1].power) or @aunits[index].is_a?(Transport) or (@aunits[index] == @aunits[index-1])
+        unless @aunits[index].is_a?(Battleship) and @aunits[index-1].is_a?(Bship1stHit)
           temp = @aunits[index-1]
           @aunits[index-1] = @aunits[index]
           @aunits[index] = temp
@@ -422,13 +432,14 @@ class BattleGUI
           @alist.see(index - 1)
           @alist.selection_clear(index)
           @alist.selection_set(index - 1)
-#        end
+        end
       end
     }
     aunitdown = proc{
       index = @alist.curselection[0]
       if (index != nil) and (@aunits.size > 1) and (index < (@aunits.size - 1))
 #        if (@aunits[index].value > @aunits[index+1].value) or (@aunits[index].power > @aunits[index+1].power) or @aunits[index].is_a?(Transport) or (@aunits[index] == @aunits[index+1])
+        unless @aunits[index+1].is_a?(Battleship) and @aunits[index].is_a?(Bship1stHit)
           temp = @aunits[index+1]
           @aunits[index+1] = @aunits[index]
           @aunits[index] = temp
@@ -436,7 +447,7 @@ class BattleGUI
           @alist.see(index + 1)
           @alist.selection_clear(index)
           @alist.selection_set(index + 1)
- #       end
+        end
       end     
     }
     aenableother = proc{
@@ -457,6 +468,7 @@ class BattleGUI
       @aunitsnums[4].get.to_i.times {@aunits.push(Bomber.new(true,@heavyBombers.get_value == '1'))}
       @aunitsnums[5].get.to_i.times {@aunits.push(Destroyer.new(true))}
       @aunitsnums[6].get.to_i.times {@aunits.push(Battleship.new(true))}
+      @aunitsnums[6].get.to_i.times {@aunits.push(Bship1stHit.new(true))}
       @aunitsnums[7].get.to_i.times {@aunits.push(Carrier.new(true))}
       @aunitsnums[8].get.to_i.times {@aunits.push(Transport.new(true))}
       @aunitsnums[9].get.to_i.times {@aunits.push(Sub.new(true,@superSubs.get_value == '1'))}
@@ -502,6 +514,7 @@ class BattleGUI
       index = @dlist.curselection[0]
       if (index != nil) and (index > 0)
 #        if (@dunits[index].value < @dunits[index-1].value) or (@dunits[index].power < @dunits[index-1].power) or @dunits[index].is_a?(Transport) or (@dunits[index] == @dunits[index-1])
+        unless @dunits[index].is_a?(Battleship) and @dunits[index-1].is_a?(Bship1stHit)
           temp = @dunits[index-1]
           @dunits[index-1] = @dunits[index]
           @dunits[index] = temp
@@ -509,13 +522,14 @@ class BattleGUI
           @dlist.see(index - 1)
           @dlist.selection_clear(index)
           @dlist.selection_set(index - 1)
-#        end
+        end
       end
     }
     dunitdown = proc{
       index = @dlist.curselection[0]
       if (index != nil) and (@dunits.size > 1) and (index < (@dunits.size - 1))
 #        if (@dunits[index].value > @dunits[index+1].value) or (@dunits[index].power > @dunits[index+1].power) or @dunits[index].is_a?(Transport) or (@dunits[index] == @dunits[index+1])
+        unless @dunits[index+1].is_a?(Battleship) and @dunits[index].is_a?(Bship1stHit)
           temp = @dunits[index+1]
           @dunits[index+1] = @dunits[index]
           @dunits[index] = temp
@@ -523,7 +537,7 @@ class BattleGUI
           @dlist.see(index + 1)
           @dlist.selection_clear(index)
           @dlist.selection_set(index + 1)
-#        end
+        end
       end     
     }
     denableother = proc{
@@ -544,6 +558,7 @@ class BattleGUI
       @dunitsnums[4].get.to_i.times {@dunits.push(Bomber.new(false,@heavyBombers.get_value == '1'))}
       @dunitsnums[5].get.to_i.times {@dunits.push(Destroyer.new(false))}
       @dunitsnums[6].get.to_i.times {@dunits.push(Battleship.new(false))}
+      @dunitsnums[6].get.to_i.times {@dunits.push(Bship1stHit.new(false))}
       @dunitsnums[7].get.to_i.times {@dunits.push(Carrier.new(false))}
       @dunitsnums[8].get.to_i.times {@dunits.push(Transport.new(false))}
       @dunitsnums[9].get.to_i.times {@dunits.push(Sub.new(false,@superSubs.get_value == '1'))}

@@ -423,7 +423,6 @@ class BattleGUI
     aunitup = proc{
       index = @alist.curselection[0]
       if (index != nil) and (index > 0)
-#        if (@aunits[index].value < @aunits[index-1].value) or (@aunits[index].power < @aunits[index-1].power) or @aunits[index].is_a?(Transport) or (@aunits[index] == @aunits[index-1])
         unless @aunits[index].is_a?(Battleship) and @aunits[index-1].is_a?(Bship1stHit)
           temp = @aunits[index-1]
           @aunits[index-1] = @aunits[index]
@@ -438,7 +437,6 @@ class BattleGUI
     aunitdown = proc{
       index = @alist.curselection[0]
       if (index != nil) and (@aunits.size > 1) and (index < (@aunits.size - 1))
-#        if (@aunits[index].value > @aunits[index+1].value) or (@aunits[index].power > @aunits[index+1].power) or @aunits[index].is_a?(Transport) or (@aunits[index] == @aunits[index+1])
         unless @aunits[index+1].is_a?(Battleship) and @aunits[index].is_a?(Bship1stHit)
           temp = @aunits[index+1]
           @aunits[index+1] = @aunits[index]
@@ -513,7 +511,6 @@ class BattleGUI
     dunitup = proc{
       index = @dlist.curselection[0]
       if (index != nil) and (index > 0)
-#        if (@dunits[index].value < @dunits[index-1].value) or (@dunits[index].power < @dunits[index-1].power) or @dunits[index].is_a?(Transport) or (@dunits[index] == @dunits[index-1])
         unless @dunits[index].is_a?(Battleship) and @dunits[index-1].is_a?(Bship1stHit)
           temp = @dunits[index-1]
           @dunits[index-1] = @dunits[index]
@@ -528,7 +525,6 @@ class BattleGUI
     dunitdown = proc{
       index = @dlist.curselection[0]
       if (index != nil) and (@dunits.size > 1) and (index < (@dunits.size - 1))
-#        if (@dunits[index].value > @dunits[index+1].value) or (@dunits[index].power > @dunits[index+1].power) or @dunits[index].is_a?(Transport) or (@dunits[index] == @dunits[index+1])
         unless @dunits[index+1].is_a?(Battleship) and @dunits[index].is_a?(Bship1stHit)
           temp = @dunits[index+1]
           @dunits[index+1] = @dunits[index]

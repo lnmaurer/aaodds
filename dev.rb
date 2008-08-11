@@ -79,6 +79,9 @@ class Unit
   def power
     @attacking ? @attack : @defend
   end
+  def ==(other)
+    (self.class == other.class) and (self.attack == other.attack) and (self.defend == other.defend)
+  end
 end
 
 class Infantry < Unit
@@ -366,32 +369,185 @@ class BattleGUI
     @aaGun = TkCheckButton.new(tframe).grid('column'=>1,'row'=> 0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     TkLabel.new(tframe, 'text'=>"Hv. Bombers").grid('column'=>2,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     @heavyBombers = TkCheckButton.new(tframe).grid('column'=>3,'row'=> 0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    TkLabel.new(tframe, 'text'=>"Comb. Bom.").grid('column'=>0,'row'=>1, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    @combinedBombardment = TkCheckButton.new(tframe).grid('column'=>1,'row'=> 1, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    TkLabel.new(tframe, 'text'=>"Jets").grid('column'=>2,'row'=>1, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    @jets = TkCheckButton.new(tframe).grid('column'=>3,'row'=> 1, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    TkLabel.new(tframe, 'text'=>"Super Subs").grid('column'=>0,'row'=>2, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    @superSubs = TkCheckButton.new(tframe).grid('column'=>1,'row'=> 2, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    TkLabel.new(tframe, 'text'=>"Comb. Bom.").grid('column'=>4,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @combinedBombardment = TkCheckButton.new(tframe).grid('column'=>5,'row'=> 0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    TkLabel.new(tframe, 'text'=>"Jets").grid('column'=>6,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @jets = TkCheckButton.new(tframe).grid('column'=>7,'row'=> 0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    TkLabel.new(tframe, 'text'=>"Super Subs").grid('column'=>8,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @superSubs = TkCheckButton.new(tframe).grid('column'=>9,'row'=> 0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     
     #attackers
-    row = -1
-    @aunits = ['Infantry', 'Tank', 'Artillery', 'Fighter', 'Bomber','Destroyer','Battleship','Carrier','Transport','Sub'].collect { |label|
-      TkLabel.new(aframe, 'text'=>label).grid('column'=>1,'row'=> (row +=1), 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-      TkSpinbox.new(aframe,'to'=>100, 'from'=>0, 'width'=>3).grid('column'=>2,'row'=> row, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    aclear = proc {
+      @aunitsnums.each{|sbox| sbox.set("0")}
+      @aupdate.call
     }
-    @alist = TkListbox.new(aframe,'height' => 12).grid('column'=>3, 'row'=>0,'rowspan'=>8, 'padx'=>5, 'pady'=>5)
-    @aup = TkButton.new(aframe,'text'=>'Up').grid('column'=>3, 'row'=>8, 'padx'=>5, 'pady'=>5)
-    @adown = TkButton.new(aframe,'text'=>'Down').grid('column'=>3, 'row'=>9, 'padx'=>5, 'pady'=>5)
+    aunitup = proc{
+      index = @alist.curselection[0]
+      if (index != nil) and (index > 0)
+        if (@aunits[index].value < @aunits[index-1].value) or (@aunits[index].power < @aunits[index-1].power) or @aunits[index].is_a?(Transport) or (@aunits[index] == @aunits[index-1])
+          temp = @aunits[index-1]
+          @aunits[index-1] = @aunits[index]
+          @aunits[index] = temp
+          @anames.set_list(@aunits.collect{|unit|unit.class})
+          @alist.see(index - 1)
+          @alist.selection_clear(index)
+          @alist.selection_set(index - 1)
+        end
+      end
+    }
+    aunitdown = proc{
+      index = @alist.curselection[0]
+      if (index != nil) and (@aunits.size > 1) and (index < (@aunits.size - 1))
+        if (@aunits[index].value > @aunits[index+1].value) or (@aunits[index].power > @aunits[index+1].power) or @aunits[index].is_a?(Transport) or (@aunits[index] == @aunits[index+1])
+          temp = @aunits[index+1]
+          @aunits[index+1] = @aunits[index]
+          @aunits[index] = temp
+          @anames.set_list(@aunits.collect{|unit|unit.class})
+          @alist.see(index + 1)
+          @alist.selection_clear(index)
+          @alist.selection_set(index + 1)
+        end
+      end     
+    }
+    aenableother = proc{
+      @aup.state('active')
+      @adown.state('active')     
+    }
+    @aupdate = proc{
+      if @alist.curselection.size != 0
+        @alist.selection_clear(@alist.curselection[0])
+      end
+      @aup.state('disabled')
+      @adown.state('disabled')
+      @aunits = Array.new
+      @aunitsnums[0].get.to_i.times {@aunits.push(Infantry.new(true))}
+      @aunitsnums[1].get.to_i.times {@aunits.push(Tank.new(true))}
+      @aunitsnums[2].get.to_i.times {@aunits.push(Artillery.new(true))}
+      @aunitsnums[3].get.to_i.times {@aunits.push(Fighter.new(true,@jets.get_value == '1'))}
+      @aunitsnums[4].get.to_i.times {@aunits.push(Bomber.new(true,@heavyBombers.get_value == '1'))}
+      @aunitsnums[5].get.to_i.times {@aunits.push(Destroyer.new(true))}
+      @aunitsnums[6].get.to_i.times {@aunits.push(Battleship.new(true))}
+      @aunitsnums[7].get.to_i.times {@aunits.push(Carrier.new(true))}
+      @aunitsnums[8].get.to_i.times {@aunits.push(Transport.new(true))}
+      @aunitsnums[9].get.to_i.times {@aunits.push(Sub.new(true,@superSubs.get_value == '1'))}
+      
+      if @asort.to_s == 'value'
+        @aunits.sort!{|a,b| (a.value <=> b.value) == 0 ? a.power <=> b.power : a.value <=> b.value}
+      else
+        @asort.set_value('power') #in case it's set to 'other'
+        @aunits.sort!{|a,b| (a.power <=> b.power) == 0 ? a.value <=> b.value : a.power <=> b.power}
+      end
+ 
+      @anames.set_list(@aunits.collect{|unit|unit.class})
+    }
+    row = -1
+    @aunitsnums = ['Infantry', 'Tank', 'Artillery', 'Fighter', 'Bomber','Destroyer','Battleship','Carrier','Transport','Sub'].collect { |label|
+      TkLabel.new(aframe, 'text'=>label).grid('column'=>0,'row'=> (row +=1), 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+      TkSpinbox.new(aframe,'to'=>100, 'from'=>0, 'width'=>3, 'command'=>@aupdate).grid('column'=>1,'row'=> row, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    }
+    TkLabel.new(aframe,'text'=>"Sort by:").grid('column'=>2, 'row'=>0, 'padx'=>5, 'pady'=>5)
+    @asort = TkVariable.new
+    @asort.set_value('power')
+    TkRadioButton.new(aframe,'text'=>'Power','variable'=>@asort,'value'=>'power','command'=>@aupdate).grid('column'=>3, 'row'=>0, 'padx'=>5, 'pady'=>5)
+    TkRadioButton.new(aframe,'text'=>'Value','variable'=>@asort,'value'=>'value','command'=>@aupdate).grid('column'=>2, 'row'=>1, 'padx'=>5, 'pady'=>5)
+    TkRadioButton.new(aframe,'text'=>'Other','variable'=>@asort,'value'=>'other','command'=>aenableother).grid('column'=>3, 'row'=>1, 'padx'=>5, 'pady'=>5)
+    ayscroll = proc{|*args| @albscroll.set(*args)}
+    ascroll = proc{|*args| @alist.yview(*args)}
+    @anames = TkVariable.new
+    @alist = TkListbox.new(aframe,'listvariable'=>@anames,'height' => 12,'yscrollcommand'=> ayscroll).grid('column'=>2, 'row'=>2,'rowspan'=>7,'columnspan'=>2, 'pady'=>5)
+    @alist.bind('<ListboxSelect>'){@asort.set_value('other');aenableother.call}
+    @albscroll = TkScrollbar.new(aframe,'orient'=>'vertical','command'=>ascroll).grid('column'=>4, 'row'=>2,'rowspan'=>7, 'padx'=>5,'sticky'=>'ns')
+    @aup = TkButton.new(aframe,'text'=>'Up','command'=>aunitup).grid('column'=>2, 'row'=>9, 'padx'=>5)
+    @adown = TkButton.new(aframe,'text'=>'Down','command'=>aunitdown).grid('column'=>3, 'row'=>9, 'padx'=>5)
+    @aup.state('disabled')
+    @adown.state('disabled')
+    TkButton.new(aframe,'text'=>'Clear','command'=>aclear).grid('column'=>2, 'row'=>10, 'padx'=>5)
 
     #defenders
-    row = -1
-    @dunits = ['Infantry', 'Tank', 'Artillery', 'Fighter', 'Bomber','Destroyer','Battleship','Carrier','Transport','Sub'].collect { |label|
-      TkLabel.new(dframe, 'text'=>label).grid('column'=>1,'row'=> (row +=1), 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-      TkSpinbox.new(dframe,'to'=>100, 'from'=>0, 'width'=>3).grid('column'=>2,'row'=> row, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    dclear = proc {
+      @dunitsnums.each{|sbox| sbox.set("0")}
+      @dupdate.call
     }
-    @dlist = TkListbox.new(dframe,'height' => 12).grid('column'=>3, 'row'=>0,'rowspan'=>8, 'padx'=>5, 'pady'=>5)
-    @dup = TkButton.new(dframe,'text'=>'Up').grid('column'=>3, 'row'=>8, 'padx'=>5, 'pady'=>5)
-    @ddown = TkButton.new(dframe,'text'=>'Down').grid('column'=>3, 'row'=>9, 'padx'=>5, 'pady'=>5)
+    dunitup = proc{
+      index = @dlist.curselection[0]
+      if (index != nil) and (index > 0)
+        if (@dunits[index].value < @dunits[index-1].value) or (@dunits[index].power < @dunits[index-1].power) or @dunits[index].is_a?(Transport) or (@dunits[index] == @dunits[index-1])
+          temp = @dunits[index-1]
+          @dunits[index-1] = @dunits[index]
+          @dunits[index] = temp
+          @dnames.set_list(@dunits.collect{|unit|unit.class})
+          @dlist.see(index - 1)
+          @dlist.selection_clear(index)
+          @dlist.selection_set(index - 1)
+        end
+      end
+    }
+    dunitdown = proc{
+      index = @dlist.curselection[0]
+      if (index != nil) and (@dunits.size > 1) and (index < (@dunits.size - 1))
+        if (@dunits[index].value > @dunits[index+1].value) or (@dunits[index].power > @dunits[index+1].power) or @dunits[index].is_a?(Transport) or (@dunits[index] == @dunits[index+1])
+          temp = @dunits[index+1]
+          @dunits[index+1] = @dunits[index]
+          @dunits[index] = temp
+          @dnames.set_list(@dunits.collect{|unit|unit.class})
+          @dlist.see(index + 1)
+          @dlist.selection_clear(index)
+          @dlist.selection_set(index + 1)
+        end
+      end     
+    }
+    denableother = proc{
+      @dup.state('active')
+      @ddown.state('active')     
+    }
+    @dupdate = proc{
+      if @dlist.curselection.size != 0
+        @dlist.selection_clear(@dlist.curselection[0])
+      end
+      @dup.state('disabled')
+      @ddown.state('disabled')
+      @dunits = Array.new
+      @dunitsnums[0].get.to_i.times {@dunits.push(Infantry.new(false))}
+      @dunitsnums[1].get.to_i.times {@dunits.push(Tank.new(false))}
+      @dunitsnums[2].get.to_i.times {@dunits.push(Artillery.new(false))}
+      @dunitsnums[3].get.to_i.times {@dunits.push(Fighter.new(false,@jets.get_value == '1'))}
+      @dunitsnums[4].get.to_i.times {@dunits.push(Bomber.new(false,@heavyBombers.get_value == '1'))}
+      @dunitsnums[5].get.to_i.times {@dunits.push(Destroyer.new(false))}
+      @dunitsnums[6].get.to_i.times {@dunits.push(Battleship.new(false))}
+      @dunitsnums[7].get.to_i.times {@dunits.push(Carrier.new(false))}
+      @dunitsnums[8].get.to_i.times {@dunits.push(Transport.new(false))}
+      @dunitsnums[9].get.to_i.times {@dunits.push(Sub.new(false,@superSubs.get_value == '1'))}
+      
+      if @dsort.to_s == 'value'
+        @dunits.sort!{|a,b| (a.value <=> b.value) == 0 ? a.power <=> b.power : a.value <=> b.value}
+      else
+        @dsort.set_value('power') #in case it's set to 'other'
+        @dunits.sort!{|a,b| (a.power <=> b.power) == 0 ? a.value <=> b.value : a.power <=> b.power}
+      end
+      @dnames.set_list(@dunits.collect{|unit|unit.class})
+    }
+    row = -1
+    @dunitsnums = ['Infantry', 'Tank', 'Artillery', 'Fighter', 'Bomber','Destroyer','Battleship','Carrier','Transport','Sub'].collect { |label|
+      TkLabel.new(dframe, 'text'=>label).grid('column'=>0,'row'=> (row +=1), 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+      TkSpinbox.new(dframe,'to'=>100, 'from'=>0, 'width'=>3,'command'=>@dupdate).grid('column'=>1,'row'=> row, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    }
+    TkLabel.new(dframe,'text'=>"Sort by:").grid('column'=>2, 'row'=>0, 'padx'=>5, 'pady'=>5)
+    @dsort = TkVariable.new
+    @dsort.set_value('power')
+    TkRadioButton.new(dframe,'text'=>'Power','variable'=>@dsort,'value'=>'power','command'=>@dupdate).grid('column'=>3, 'row'=>0, 'padx'=>5, 'pady'=>5)
+    TkRadioButton.new(dframe,'text'=>'Value','variable'=>@dsort,'value'=>'value','command'=>@dupdate).grid('column'=>2, 'row'=>1, 'padx'=>5, 'pady'=>5)
+    TkRadioButton.new(dframe,'text'=>'Other','variable'=>@dsort,'value'=>'other','command'=>denableother).grid('column'=>3, 'row'=>1, 'padx'=>5, 'pady'=>5)
+    dyscroll = proc{|*args| @dlbscroll.set(*args)}
+    dscroll = proc{|*args| @dlist.yview(*args)}
+    @dnames = TkVariable.new('')
+    @dlist = TkListbox.new(dframe,'listvariable'=>@dnames,'height' => 12,'yscrollcommand'=> dyscroll).grid('column'=>2, 'row'=>2,'rowspan'=>7,'columnspan'=>2, 'pady'=>5)
+    @dlist.bind('<ListboxSelect>'){@dsort.set_value('other');denableother.call}
+    @dlbscroll = TkScrollbar.new(dframe,'orient'=>'vertical','command'=>dscroll).grid('column'=>4, 'row'=>2,'rowspan'=>7, 'padx'=>5,'sticky'=>'ns')
+    @dup = TkButton.new(dframe,'text'=>'Up','command'=>dunitup).grid('column'=>2, 'row'=>9, 'padx'=>5)
+    @ddown = TkButton.new(dframe,'text'=>'Down','command'=>dunitdown).grid('column'=>3, 'row'=>9, 'padx'=>5)
+    @dup.state('disabled')
+    @ddown.state('disabled')
+    TkButton.new(dframe,'text'=>'Clear','command'=>dclear).grid('column'=>2, 'row'=>10, 'padx'=>5)
    
     #controls
     TkLabel.new(cframe, 'text'=>"Attacker wins").grid('column'=>0,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)

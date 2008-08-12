@@ -18,10 +18,21 @@ if $use_gsl
       self.each{|o| yield o, i; i+=1}
     end
   end
+  class GSL::Matrix
+    def size
+      (self.size1 == self.size2 ? self.size1 : nil)
+    end
+  end
+
 else
   class Vector
     def each_with_index
       @elements.each_with_index{|o,i| yield o, i}
+    end
+  end
+  class Matrix
+    def size
+      (self.column_size == self.row_size ? self.row_size : nil)
     end
   end
 end
@@ -315,12 +326,17 @@ class Battle
     puts "creating transition matrix (#{(@a.size + 1) * (@d.size + 1)} columns)" if __FILE__ != $0  
     $gui.print_to_console("creating transition matrix (#{(@a.size + 1) * (@d.size + 1)} columns)\n") if __FILE__ == $0  
 
-    mat = Array.new((@a.size + 1) * (@d.size + 1)){Array.new((@a.size + 1) * (@d.size + 1), 0.0)}
-    for col in (0..(mat.size - 1))
+    if $use_gsl
+      @transmat = GSL::Matrix.zeros((@a.size + 1) * (@d.size + 1), (@a.size + 1) * (@d.size + 1))
+    else
+      @transmat = Array.new((@a.size + 1) * (@d.size + 1)){Array.new((@a.size + 1) * (@d.size + 1), 0.0)}
+    end
+
+    for col in (0..(@transmat.size - 1))
       print "#{col + 1} " if __FILE__ != $0  
       $gui.print_to_console("#{col + 1} ") if __FILE__ == $0  
       ra, rd = numcon(col)
-      for row in (col..(mat.size - 1)) #only need consider lower triangle
+      for row in (col..(@transmat.size - 1)) #only need consider lower triangle
         ca, cd = numcon(row)
       
         #since d doesn't have heavy bombers, hits == size always  
@@ -352,17 +368,19 @@ class Battle
 
         #assign value if not in a diagonal or if the diagonal is the only non-zero term
         if (col != row) or (mag == 1)
-          mat[row][col] = (mag * pd * pa).to_f
+          if $use_gsl
+            @transmat[row,col] = (mag * pd * pa).to_f
+          else
+            @transmat[row][col] = (mag * pd * pa).to_f
+          end
         end
         #it's already zero otherwise
       end
     end
     print "\n" if __FILE__ != $0  
     $gui.print_to_console("\n") if __FILE__ == $0  
-    if $use_gsl
-      @transmat = GSL::Matrix.alloc(mat.flatten,mat.size,mat.size)
-    else
-      @transmat = Matrix.rows(mat)
+    unless $use_gsl
+      @transmat = Matrix.rows(@transmat)
     end
 
 #each rep will cause at least one unit to be lost, which requires @a.size + @d.size
@@ -374,9 +392,9 @@ class Battle
 
     #state contains the solution to the markov chain
     if $use_gsl
-      @state = GSL::Vector.alloc(Array.new(mat.size){|i| i == 0 ? 1.0 : 0.0}).col
+      @state = GSL::Vector.alloc(Array.new(@transmat.size){|i| i == 0 ? 1.0 : 0.0}).col
     else
-      @state = Vector.elements(Array.new(mat.size){|i| i == 0 ? 1.0 : 0.0})
+      @state = Vector.elements(Array.new(@transmat.size){|i| i == 0 ? 1.0 : 0.0})
     end
     1.upto(reps){|i|
       print i, " " if __FILE__ != $0  
@@ -648,8 +666,8 @@ class BattleGUI
       @defenderProb.value = @b.dwins.to_s
       @annihilationProb.value = @b.nwins.to_s
       @sumProb.value = @b.tprob.to_s
-      @anames.value = @anames.list.collect{|s|s.split[0]}.zip(@b.acumprobs).collect{|a| a[0] + ' ' + a[1].to_s}
-      @dnames.value = @dnames.list.collect{|s|s.split[0]}.zip(@b.dcumprobs).collect{|a| a[0] + ' ' + a[1].to_s}
+      @anames.value = @anames.list.collect{|s|s.split[0]}.zip(@b.acumprobs.reverse).collect{|a| a[0] + ' ' + a[1].to_s}
+      @dnames.value = @dnames.list.collect{|s|s.split[0]}.zip(@b.dcumprobs.reverse).collect{|a| a[0] + ' ' + a[1].to_s}
     }
    
     TkLabel.new(cframe, 'text'=>"Attacker wins").grid('column'=>0,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)

@@ -1,15 +1,33 @@
-require 'matrix'
 require 'rational'
 require 'tkextlib/tile'
 
-def Integer.to_r
-  Rational(self,1)
+#if it's available, the GNU Scientific Library can be used for matrix/vector
+#multiplication, which speeds the process up greatly
+$use_gsl = true
+begin
+  require 'gsl'
+rescue Exception
+  require 'matrix'
+  $use_gsl = false
 end
 
-class Vector
-  def each_with_index
-    @elements.each_with_index{|o,i| yield o, i}
+if $use_gsl
+  class GSL::Vector
+    def each_with_index
+      i = 0
+      self.each{|o| yield o, i; i+=1}
+    end
   end
+else
+  class Vector
+    def each_with_index
+      @elements.each_with_index{|o,i| yield o, i}
+    end
+  end
+end
+
+def Integer.to_r
+  Rational(self,1)
 end
 
 def factorial(num)
@@ -258,8 +276,7 @@ class Battle
     @a = a
     @d = d
     
-    start = Time.now.to_f
-    $gui.reset_console if __FILE__ == $0  
+    start = Time.now.to_f 
 #TODO: calculate army IPCs here as well    
     puts "calculating attacker probabilities" if __FILE__ != $0  
     $gui.print_to_console("calculating attacker probabilities\n") if __FILE__ == $0    
@@ -335,10 +352,6 @@ class Battle
 
         #assign value if not in a diagonal or if the diagonal is the only non-zero term
         if (col != row) or (mag == 1)
-if (mag == nil) or (pd == nil) or (pa == nil)
-print ra,' ',rd,' ',ca,' ',cd,'\n'
-print mag,' ',pd,' ',pa,'\n'
-end
           mat[row][col] = (mag * pd * pa).to_f
         end
         #it's already zero otherwise
@@ -346,7 +359,11 @@ end
     end
     print "\n" if __FILE__ != $0  
     $gui.print_to_console("\n") if __FILE__ == $0  
-    @transmat = Matrix.rows(mat)
+    if $use_gsl
+      @transmat = GSL::Matrix.alloc(mat.flatten,mat.size,mat.size)
+    else
+      @transmat = Matrix.rows(mat)
+    end
 
 #each rep will cause at least one unit to be lost, which requires @a.size + @d.size
 #steps, hovever, not all units need be eliminated (only all the units of one side)
@@ -356,7 +373,11 @@ end
     $gui.print_to_console("solving with matrix: 1..#{reps}\n") if __FILE__ == $0  
 
     #state contains the solution to the markov chain
-    @state = Vector.elements(Array.new(mat.size){|i| i == 0 ? 1.0 : 0.0})
+    if $use_gsl
+      @state = GSL::Vector.alloc(Array.new(mat.size){|i| i == 0 ? 1.0 : 0.0}).col
+    else
+      @state = Vector.elements(Array.new(mat.size){|i| i == 0 ? 1.0 : 0.0})
+    end
     1.upto(reps){|i|
       print i, " " if __FILE__ != $0  
       $gui.print_to_console("#{i} ") if __FILE__ == $0  
@@ -619,6 +640,7 @@ class BattleGUI
     )}
     calc = proc{
 #TODO: aa guns and bombard
+      self.reset_console 
       @a = Army.new(@aunits.reverse)
       @d = Army.new(@dunits.reverse)
       @b = Battle.new(@a,@d)

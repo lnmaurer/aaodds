@@ -550,7 +550,7 @@ class BattleGUI
     ayscroll = proc{|*args| @albscroll.set(*args)}
     ascroll = proc{|*args| @alist.yview(*args)}
     @anames = TkVariable.new
-    @alist = TkListbox.new(aframe,'listvariable'=>@anames,'height' => 12,'yscrollcommand'=> ayscroll).grid('column'=>2, 'row'=>2,'rowspan'=>7,'columnspan'=>2, 'pady'=>5)
+    @alist = TkListbox.new(aframe,'listvariable'=>@anames,'height' => 12,'yscrollcommand'=> ayscroll,:font=>'TkFixedFont').grid('column'=>2, 'row'=>2,'rowspan'=>7,'columnspan'=>2, 'pady'=>5)
     @alist.bind('<ListboxSelect>'){@asort.set_value('other');aenableother.call}
     @albscroll = TkScrollbar.new(aframe,'orient'=>'vertical','command'=>ascroll).grid('column'=>4, 'row'=>2,'rowspan'=>7, 'padx'=>5,'sticky'=>'ns')
     @aup = TkButton.new(aframe,'text'=>'Up','command'=>aunitup).grid('column'=>2, 'row'=>9, 'padx'=>5)
@@ -637,7 +637,7 @@ class BattleGUI
     dyscroll = proc{|*args| @dlbscroll.set(*args)}
     dscroll = proc{|*args| @dlist.yview(*args)}
     @dnames = TkVariable.new('')
-    @dlist = TkListbox.new(dframe,'listvariable'=>@dnames,'height' => 12,'yscrollcommand'=> dyscroll).grid('column'=>2, 'row'=>2,'rowspan'=>7,'columnspan'=>2, 'pady'=>5)
+    @dlist = TkListbox.new(dframe,'listvariable'=>@dnames,'height' => 12,'yscrollcommand'=> dyscroll,:font=>'TkFixedFont').grid('column'=>2, 'row'=>2,'rowspan'=>7,'columnspan'=>2, 'pady'=>5)
     @dlist.bind('<ListboxSelect>'){@dsort.set_value('other');denableother.call}
     @dlbscroll = TkScrollbar.new(dframe,'orient'=>'vertical','command'=>dscroll).grid('column'=>4, 'row'=>2,'rowspan'=>7, 'padx'=>5,'sticky'=>'ns')
     @dup = TkButton.new(dframe,'text'=>'Up','command'=>dunitup).grid('column'=>2, 'row'=>9, 'padx'=>5)
@@ -650,7 +650,7 @@ class BattleGUI
     about = proc {Tk.messageBox('type' => 'ok',
       'icon' => 'info',
       'title' => 'About',
-      'message' => "Aacalc revision 52\n" + 
+      'message' => "Aacalc revision 60\n" + 
       "Copyright (C) 2008 Leon N. Maurer\n" +
       'https://launchpad.net/aacalc' + "\n" +
       "Source code available under the GNU Public License.\n" +
@@ -666,8 +666,8 @@ class BattleGUI
       @defenderProb.value = @b.dwins.to_s
       @annihilationProb.value = @b.nwins.to_s
       @sumProb.value = @b.tprob.to_s
-      @anames.value = @anames.list.collect{|s|s.split[0]}.zip(@b.acumprobs.reverse).collect{|a| a[0] + ' ' + a[1].to_s}
-      @dnames.value = @dnames.list.collect{|s|s.split[0]}.zip(@b.dcumprobs.reverse).collect{|a| a[0] + ' ' + a[1].to_s}
+      @anames.value = @anames.list.collect{|s|s.split[0]}.zip(@b.acumprobs.reverse).collect{|a| sprintf("%-11s %.6f",a[0],a[1])}
+      @dnames.value = @dnames.list.collect{|s|s.split[0]}.zip(@b.dcumprobs.reverse).collect{|a| sprintf("%-11s %.6f",a[0],a[1])}
     }
    
     TkLabel.new(cframe, 'text'=>"Attacker wins").grid('column'=>0,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)

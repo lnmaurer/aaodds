@@ -123,7 +123,7 @@ class Fighter < Unit
     end
   end
   def dup
-    Fighter.new(@attacking,@defence == 5)
+    Fighter.new(@attacking,@defend == 5)
   end
 end
 
@@ -272,7 +272,6 @@ class Battle
     end
     aprobs.reverse!
     ahits.reverse!
-ahits.each{|h| puts h.to_s + ' '}
         
     puts "calculating defender probabilities" if __FILE__ != $0  
     $gui.print_to_console("calculating defender probabilities\n") if __FILE__ == $0    

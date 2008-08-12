@@ -216,11 +216,16 @@ class Army
   end
   
   def probs
-#TODO: change over to using hits instead of size
-    p = Array.new(@size + 1, 0)
+    p = Array.new(@hits + 1, 0)
     p[0] = 1
     powers = Array.new(7,0)
-    @arr.each{|unit| powers[unit.power] += 1}
+    @arr.each{|unit|
+      if unit.is_a?(Bomber) and unit.heavy
+        powers[unit.power] += 2
+      else
+        powers[unit.power] += 1
+      end
+    }
     powers.each_with_index{|num,power|
       pos = Array.new(num + 1,nil)
       for hits in (0..num)
@@ -258,18 +263,25 @@ class Battle
 #TODO: calculate army IPCs here as well    
     puts "calculating attacker probabilities" if __FILE__ != $0  
     $gui.print_to_console("calculating attacker probabilities\n") if __FILE__ == $0    
-    aprobs = Array.new(a.size + 1,nil)
+    aprobs = Array.new(a.size + 1,nil) #holds probabilities
+    ahits = Array.new(a.size + 1,nil) #holds maximum number of hits for an army size
     for i in (0..@a.size)
       aprobs[i] = a.probs
+      ahits[i] = a.hits
       a = a.loseone
     end
     aprobs.reverse!
+    ahits.reverse!
+ahits.each{|h| puts h.to_s + ' '}
         
     puts "calculating defender probabilities" if __FILE__ != $0  
     $gui.print_to_console("calculating defender probabilities\n") if __FILE__ == $0    
     dprobs = Array.new(d.size + 1,nil)
+    #since d doesn't have heavy bombers, hits == size always
+#    dhits = Array.new(d.size + 1,nil)
     for i in (0..@d.size)
       dprobs[i] = d.probs
+#      dhits[i] = d.hits
       d = d.loseone
     end
     dprobs.reverse!
@@ -294,7 +306,8 @@ class Battle
       ra, rd = numcon(col)
       for row in (col..(mat.size - 1)) #only need consider lower triangle
         ca, cd = numcon(row)
-        
+      
+        #since d doesn't have heavy bombers, hits == size always  
         #consider all cases where defence gets >= ra hits if they can get that many
         if (ca == 0) and (rd >= ra)
           pd = dprobs[rd][ra..-1].inject{|s,v| s + v}
@@ -305,10 +318,11 @@ class Battle
         else #if neither of the above cases work, it can't happen
           pd = 0
         end
-              
-        if (cd == 0) and (ra >= rd)
+
+        #since a can get heavy bombers, we need to us ahits[] and not rely on size        
+        if (cd == 0) and (ahits[ra] >= rd)
           pa = aprobs[ra][rd..-1].inject{|s,v| s + v}
-        elsif ((rd - cd) >= 0) and ((rd - cd) <= ra)
+        elsif ((rd - cd) >= 0) and ((rd - cd) <= ahits[ra])
           pa = aprobs[ra][rd-cd]
         else
           pa = 0
@@ -322,6 +336,10 @@ class Battle
 
         #assign value if not in a diagonal or if the diagonal is the only non-zero term
         if (col != row) or (mag == 1)
+if (mag == nil) or (pd == nil) or (pa == nil)
+print ra,' ',rd,' ',ca,' ',cd,'\n'
+print mag,' ',pd,' ',pa,'\n'
+end
           mat[row][col] = (mag * pd * pa).to_f
         end
         #it's already zero otherwise
@@ -474,7 +492,7 @@ class BattleGUI
       if @asort.to_s == 'value'
         @aunits.sort!{|a,b| (a.value <=> b.value) == 0 ? a.power <=> b.power : a.value <=> b.value}
       else
-        @asort.set_value('power') #in case it's set to 'other'
+        @asort.value ='power' #in case it's set to 'other'
         @aunits.sort!{|a,b| (a.power <=> b.power) == 0 ? a.value <=> b.value : a.power <=> b.power}
       end
  
@@ -562,7 +580,7 @@ class BattleGUI
       if @dsort.to_s == 'value'
         @dunits.sort!{|a,b| (a.value <=> b.value) == 0 ? a.power <=> b.power : a.value <=> b.value}
       else
-        @dsort.set_value('power') #in case it's set to 'other'
+        @dsort.value = 'power' #in case it's set to 'other'
         @dunits.sort!{|a,b| (a.power <=> b.power) == 0 ? a.value <=> b.value : a.power <=> b.power}
       end
       @dnames.set_list(@dunits.collect{|unit|unit.class})

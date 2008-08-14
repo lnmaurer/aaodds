@@ -98,11 +98,12 @@ end
 
 
 class Unit
-  attr_reader :value, :attack, :defend
-  def initialize(attack, defend, value, attacking)
+  attr_reader :value, :attack, :defend, :type
+  def initialize(attack, defend, value, type, attacking)
     @attack = attack
     @defend = defend
     @value = value
+    @type = type
     @attacking = attacking
   end
   def power
@@ -115,7 +116,7 @@ end
 
 class Infantry < Unit
   def initialize(a)
-    super(1,2,3,a)
+    super(1,2,3,"land",a)
   end
   def two_power
     @attack = 2
@@ -127,7 +128,7 @@ end
 
 class Tank < Unit
   def initialize(a)
-    super(3,3,5,a)
+    super(3,3,5,"land",a)
   end
   def dup
     Tank.new(@attacking)
@@ -136,7 +137,7 @@ end
 
 class Artillery < Unit
   def initialize(a)
-    super(2,2,4,a)
+    super(2,2,4,"land",a)
   end
   def dup
     Artillery.new(@attacking)
@@ -146,9 +147,9 @@ end
 class Fighter < Unit
   def initialize(a,jet=false)
     if jet
-      super(3,5,10,a)
+      super(3,5,10,"air",a)
     else
-      super(3,4,10,a)
+      super(3,4,10,"air",a)
     end
   end
   def dup
@@ -160,7 +161,7 @@ class Bomber < Unit
   attr_reader :heavy
   def initialize(a,heavy=false)
     @heavy = heavy and a
-    super(4,1,15,a)
+    super(4,1,15,"air",a)
   end
   def dup
     Bomber.new(@attacking,@heavy)
@@ -169,7 +170,7 @@ end
 
 class Destroyer < Unit
   def initialize(a)
-    super(3,3,12,a)
+    super(3,3,12,"sea",a)
   end
   def dup
     Destroyer.new(@attacking)
@@ -178,7 +179,7 @@ end
 
 class Battleship < Unit
   def initialize(a)
-    super(4,4,24,a)
+    super(4,4,24,"sea",a)
   end
   def dup
     Battleship.new(@attacking)
@@ -187,7 +188,7 @@ end
 
 class Bship1stHit < Unit
   def initialize(a)
-    super(0,0,0,a)
+    super(0,0,0,"sea",a)
   end
   def dup
     Bship1stHit.new(@attacking)
@@ -196,7 +197,7 @@ end
 
 class Carrier < Unit
   def initialize(a)
-    super(1,3,16,a)
+    super(1,3,16,"sea",a)
   end
   def dup
     Carrier.new(@attacking)
@@ -205,7 +206,7 @@ end
 
 class Transport < Unit
   def initialize(a)
-    super(0,1,8,a)
+    super(0,1,8,"sea",a)
   end
   def dup
     Transport.new(@attacking)
@@ -215,9 +216,9 @@ end
 class Sub < Unit
   def initialize(a,sup = false)
     if sup
-      super(3,2,8,a)
+      super(3,2,8,"sea",a)
     else
-      super(2,2,8,a)
+      super(2,2,8,"sea",a)
     end
   end
   def dup
@@ -508,6 +509,19 @@ class BattleGUI
       @aup.state('active')
       @adown.state('active')     
     }
+    @aenableland = proc{
+      @aunitsnums[0..2].each{|sbox| sbox.state('normal')}
+    }
+    @adisableland = proc{
+      @aunitsnums[0..2].each{|sbox| sbox.state('disabled')}
+    }
+    @aenablesea = proc{
+      @aunitsnums[5..9].each{|sbox| sbox.state('normal')}
+    }
+    @adisablesea = proc{
+      @aunitsnums[5].state('disabled') unless @combinedBombardment.get_value == '1'
+      @aunitsnums[7..9].each{|sbox| sbox.state('disabled')}
+    }
     @aupdate = proc{
       if @alist.curselection.size != 0
         @alist.selection_clear(@alist.curselection[0])
@@ -534,6 +548,24 @@ class BattleGUI
         @aunits.sort!{|a,b| (a.power <=> b.power) == 0 ? a.value <=> b.value : a.power <=> b.power}
       end
  
+      has_land = @aunits.any?{|unit| unit.type == 'land'}
+      @aunits = @aunits.reject{|unit| unit.is_a?(Bship1stHit)} if has_land #if there are land units, take out the first hit
+      has_sea = @aunits.any?{|unit| (unit.type == 'sea') and (not(unit.is_a?(Battleship) or unit.is_a?(Bship1stHit) or (unit.is_a?(Destroyer) and (@combinedBombardment.get_value == '1'))))}
+      if has_land
+        @adisablesea.call
+        @ddisablesea.call
+      else
+        @aenablesea.call
+        @denablesea.call
+      end
+      if has_sea
+        @adisableland.call
+        @ddisableland.call
+      else
+        @aenableland.call
+        @denableland.call
+      end
+
       @anames.set_list(@aunits.collect{|unit|unit.class})
     }
     row = -1
@@ -596,6 +628,18 @@ class BattleGUI
       @dup.state('active')
       @ddown.state('active')     
     }
+    @denableland = proc{
+      @dunitsnums[0..2].each{|sbox| sbox.state('normal')}
+    }
+    @ddisableland = proc{
+      @dunitsnums[0..2].each{|sbox| sbox.state('disabled')}
+    }
+    @denablesea = proc{
+      @dunitsnums[5..9].each{|sbox| sbox.state('normal')}
+    }
+    @ddisablesea = proc{
+      @dunitsnums[5..9].each{|sbox| sbox.state('disabled')}
+    }
     @dupdate = proc{
       if @dlist.curselection.size != 0
         @dlist.selection_clear(@dlist.curselection[0])
@@ -621,6 +665,24 @@ class BattleGUI
         @dsort.value = 'power' #in case it's set to 'other'
         @dunits.sort!{|a,b| (a.power <=> b.power) == 0 ? a.value <=> b.value : a.power <=> b.power}
       end
+
+      has_land = @dunits.any?{|unit| unit.type == 'land'}
+      has_sea = @dunits.any?{|unit| unit.type == 'sea'}
+      if has_land
+        @adisablesea.call
+        @ddisablesea.call
+      else
+        @aenablesea.call
+        @denablesea.call
+      end
+      if has_sea
+        @adisableland.call
+        @ddisableland.call
+      else
+        @aenableland.call
+        @denableland.call
+      end
+
       @dnames.set_list(@dunits.collect{|unit|unit.class})
     }
     row = -1
@@ -658,7 +720,11 @@ class BattleGUI
     )}
     calc = proc{
 #TODO: aa guns and bombard
-      self.reset_console 
+      self.reset_console
+    
+      has_land
+
+
       @a = Army.new(@aunits.reverse)
       @d = Army.new(@dunits.reverse)
       @b = Battle.new(@a,@d)
@@ -692,7 +758,7 @@ class BattleGUI
     #techs
     @aaGun = TkCheckButton.new(tframe,:text=>"AA gun").grid(:column=>0,:row=>0,:padx=>5,:pady=>5)
     @heavyBombers = TkCheckButton.new(tframe,:text=>"Hv. Bombers",:command=>@aupdate).grid(:column=>1,:row=>0,:padx=>5,:pady=>5)
-    @combinedBombardment = TkCheckButton.new(tframe,:text=>"Comb. Bom.").grid(:column=>2,:row=>0,:padx=>5,:pady=>5)
+    @combinedBombardment = TkCheckButton.new(tframe,:text=>"Comb. Bom.",:command=>@aupdate).grid(:column=>2,:row=>0,:padx=>5,:pady=>5)
     @jets = TkCheckButton.new(tframe,:text=>"Jets",:command=>@dupdate).grid(:column=>3,:row=>0,:padx=>5,:pady=>5)
     @superSubs = TkCheckButton.new(tframe,:text=>"Super Subs",:command=>@aupdate).grid(:column=>4,:row=>0,:padx=>5,:pady=>5)
   end

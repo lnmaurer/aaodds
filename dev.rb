@@ -284,11 +284,19 @@ class Battle
     ((@a.size + 1)*(@d.size + 1)).times{|x| print numcon(x)[0]," ",numcon(x)[1],"\n"}
   end
 
-  def initialize(a,d)
+  def initialize(a,d,bombarders=nil)
     @a = a
     @d = d
     
     start = Time.now.to_f 
+
+    bprobs = [1] #default is for no bombard hits
+    if bombarders != nil
+      puts "calculating bombardment probabilities" if __FILE__ != $0  
+      $gui.print_to_console("calculating bombardment probabilities\n") if __FILE__ == $0
+      bprobs = bombarders.probs
+    end
+
 #TODO: calculate army IPCs here as well    
     puts "calculating attacker probabilities" if __FILE__ != $0  
     $gui.print_to_console("calculating attacker probabilities\n") if __FILE__ == $0    
@@ -391,11 +399,29 @@ class Battle
     puts "solving with matrix: 1..#{reps}" if __FILE__ != $0  
     $gui.print_to_console("solving with matrix: 1..#{reps}\n") if __FILE__ == $0  
 
+    #sarr contains the initial state of the state vector -- the complicated setup is to do bombardments
+    sarr = Array.new(@transmat.size){|i|
+      na, nd = numcon(i)
+      hits = @d.size - nd
+      if  na == @a.size #no attackers die in bombardment
+        if hits < bprobs.size
+          if nd != 0
+            bprobs[hits].to_f
+          else #in case there are more bomarders than defendign units
+            bprobs[hits..-1].inject(0){|s,v|s+v}.to_f
+          end
+        else
+          0.0
+        end
+      else
+        0.0
+      end
+    }
     #state contains the solution to the markov chain
     if $use_gsl
-      @state = GSL::Vector.alloc(Array.new(@transmat.size){|i| i == 0 ? 1.0 : 0.0}).col
+      @state = GSL::Vector.alloc(sarr).col
     else
-      @state = Vector.elements(Array.new(@transmat.size){|i| i == 0 ? 1.0 : 0.0})
+      @state = Vector.elements(sarr)
     end
     1.upto(reps){|i|
       print i, " " if __FILE__ != $0  
@@ -513,14 +539,20 @@ class BattleGUI
       @aunitsnums[0..2].each{|sbox| sbox.state('normal')}
     }
     @adisableland = proc{
-      @aunitsnums[0..2].each{|sbox| sbox.state('disabled')}
+      @aunitsnums[0..2].each{|sbox| sbox.state('disabled');sbox.set(0)}
     }
     @aenablesea = proc{
       @aunitsnums[5..9].each{|sbox| sbox.state('normal')}
     }
     @adisablesea = proc{
-      @aunitsnums[5].state('disabled') unless @combinedBombardment.get_value == '1'
-      @aunitsnums[7..9].each{|sbox| sbox.state('disabled')}
+      if @combinedBombardment.get_value == '1'
+        @aunitsnums[5].state('normal')
+      else
+        @aunits = @aunits.reject{|u| u.is_a?(Destroyer)}
+        @aunitsnums[5].state('disabled')
+        @aunitsnums[5].set(0)
+      end
+      @aunitsnums[7..9].each{|sbox| sbox.state('disabled');sbox.set(0)}
     }
     @aupdate = proc{
       if @alist.curselection.size != 0
@@ -532,38 +564,40 @@ class BattleGUI
       @aunitsnums[0].get.to_i.times {@aunits.push(Infantry.new(true))}
       @aunitsnums[1].get.to_i.times {@aunits.push(Tank.new(true))}
       @aunitsnums[2].get.to_i.times {@aunits.push(Artillery.new(true))}
-      @aunitsnums[3].get.to_i.times {@aunits.push(Fighter.new(true,@jets.get_value == '1'))}
-      @aunitsnums[4].get.to_i.times {@aunits.push(Bomber.new(true,@heavyBombers.get_value == '1'))}
-      @aunitsnums[5].get.to_i.times {@aunits.push(Destroyer.new(true))}
-      @aunitsnums[6].get.to_i.times {@aunits.push(Battleship.new(true))}
-      @aunitsnums[6].get.to_i.times {@aunits.push(Bship1stHit.new(true))}
-      @aunitsnums[7].get.to_i.times {@aunits.push(Carrier.new(true))}
-      @aunitsnums[8].get.to_i.times {@aunits.push(Transport.new(true))}
-      @aunitsnums[9].get.to_i.times {@aunits.push(Sub.new(true,@superSubs.get_value == '1'))}
-      
-      if @asort.to_s == 'value'
-        @aunits.sort!{|a,b| (a.value <=> b.value) == 0 ? a.power <=> b.power : a.value <=> b.value}
-      else
-        @asort.value ='power' #in case it's set to 'other'
-        @aunits.sort!{|a,b| (a.power <=> b.power) == 0 ? a.value <=> b.value : a.power <=> b.power}
-      end
- 
-      has_land = @aunits.any?{|unit| unit.type == 'land'}
-      @aunits = @aunits.reject{|unit| unit.is_a?(Bship1stHit)} if has_land #if there are land units, take out the first hit
-      has_sea = @aunits.any?{|unit| (unit.type == 'sea') and (not(unit.is_a?(Battleship) or unit.is_a?(Bship1stHit) or (unit.is_a?(Destroyer) and (@combinedBombardment.get_value == '1'))))}
-      if has_land
+
+      @ahas_land = @aunits.any?{|unit| unit.type == 'land'}
+      if @ahas_land or @dhas_land
         @adisablesea.call
         @ddisablesea.call
       else
         @aenablesea.call
         @denablesea.call
       end
-      if has_sea
+
+      @aunitsnums[3].get.to_i.times {@aunits.push(Fighter.new(true,@jets.get_value == '1'))}
+      @aunitsnums[4].get.to_i.times {@aunits.push(Bomber.new(true,@heavyBombers.get_value == '1'))}
+      @aunitsnums[5].get.to_i.times {@aunits.push(Destroyer.new(true))}
+      @aunitsnums[6].get.to_i.times {@aunits.push(Battleship.new(true))}
+      @aunitsnums[6].get.to_i.times {@aunits.push(Bship1stHit.new(true))} unless @ahas_land
+      @aunitsnums[7].get.to_i.times {@aunits.push(Carrier.new(true))}
+      @aunitsnums[8].get.to_i.times {@aunits.push(Transport.new(true))}
+      @aunitsnums[9].get.to_i.times {@aunits.push(Sub.new(true,@superSubs.get_value == '1'))}
+      
+#      @aunits = @aunits.reject{|unit| unit.is_a?(Bship1stHit)} if ahas_land #if there are land units, take out the first hit
+      @ahas_sea = @aunits.any?{|unit| (unit.type == 'sea') and (not(unit.is_a?(Battleship) or unit.is_a?(Bship1stHit) or (unit.is_a?(Destroyer) and (@combinedBombardment.get_value == '1'))))}
+      if @ahas_sea or @dhas_sea
         @adisableland.call
         @ddisableland.call
       else
         @aenableland.call
         @denableland.call
+      end
+
+      if @asort.to_s == 'value'
+        @aunits.sort!{|a,b| (a.value <=> b.value) == 0 ? a.power <=> b.power : a.value <=> b.value}
+      else
+        @asort.value ='power' #in case it's set to 'other'
+        @aunits.sort!{|a,b| (a.power <=> b.power) == 0 ? a.value <=> b.value : a.power <=> b.power}
       end
 
       @anames.set_list(@aunits.collect{|unit|unit.class})
@@ -666,16 +700,16 @@ class BattleGUI
         @dunits.sort!{|a,b| (a.power <=> b.power) == 0 ? a.value <=> b.value : a.power <=> b.power}
       end
 
-      has_land = @dunits.any?{|unit| unit.type == 'land'}
-      has_sea = @dunits.any?{|unit| unit.type == 'sea'}
-      if has_land
+      @dhas_land = @dunits.any?{|unit| unit.type == 'land'}
+      @dhas_sea = @dunits.any?{|unit| unit.type == 'sea'}
+      if @dhas_land or @ahas_land
         @adisablesea.call
         @ddisablesea.call
       else
         @aenablesea.call
         @denablesea.call
       end
-      if has_sea
+      if @dhas_sea or @ahas_sea
         @adisableland.call
         @ddisableland.call
       else
@@ -722,18 +756,26 @@ class BattleGUI
 #TODO: aa guns and bombard
       self.reset_console
     
-      has_land
+      has_land = (@aunits + @dunits).any?{|u| u.type == 'land'}
+      has_sea = (@aunits + @dunits).any?{|u| u.type == 'sea'}
 
+      bombarders = nil
+      if has_land and has_sea #then there's a bombardment coming
+        bombarders = Army.new(@aunits.select{|u| u.type == 'sea'})
+        @oldaunits = @aunits #don't want to permantly remove ships -- just need to seperate them for computations
+        @aunits = @aunits.reject{|u| u.type == 'sea'}
+      end
 
       @a = Army.new(@aunits.reverse)
+      @aunits = @oldaunits if has_land and has_sea
       @d = Army.new(@dunits.reverse)
-      @b = Battle.new(@a,@d)
+      @b = Battle.new(@a,@d,bombarders)
       @attackerProb.value = @b.awins.to_s
       @defenderProb.value = @b.dwins.to_s
       @annihilationProb.value = @b.nwins.to_s
       @sumProb.value = @b.tprob.to_s
-      @anames.value = @anames.list.collect{|s|s.split[0]}.zip(@b.acumprobs.reverse).collect{|a| sprintf("%-11s %.6f",a[0],a[1])}
-      @dnames.value = @dnames.list.collect{|s|s.split[0]}.zip(@b.dcumprobs.reverse).collect{|a| sprintf("%-11s %.6f",a[0],a[1])}
+      @anames.value = @anames.list.collect{|s|s.split[0]}.zip(@b.acumprobs.reverse).collect{|a| sprintf("%-11s %.6f",a[0],a[1] ? a[1] : 1)}
+      @dnames.value = @dnames.list.collect{|s|s.split[0]}.zip(@b.dcumprobs.reverse).collect{|a| sprintf("%-11s %.6f",a[0],a[1] ? a[1] : 1)}
     }
    
     TkLabel.new(cframe, 'text'=>"Attacker wins").grid('column'=>0,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)

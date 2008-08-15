@@ -24,6 +24,16 @@ if $use_gsl
     end
   end
 
+alias oldprint print
+#TODO: give this all the functionality of the old print
+def print(s)
+  if __FILE__ == $0
+    $gui.print_to_console(s)
+  else
+    oldprint(s)
+  end
+end
+
 else
   class Vector
     def each_with_index
@@ -54,7 +64,7 @@ def combinations(n,k)
   ((n-k+1)..n).inject(1){|p,v| p * v} / factorial(k)
 end
 
-def binom (n,k,prob)
+def binom(n,k,prob)
   combinations(n,k) * (prob**k) * ((1 - prob)**(n - k))
 end
 
@@ -292,14 +302,12 @@ class Battle
 
     bprobs = [1] #default is for no bombard hits
     if bombarders != nil
-      puts "calculating bombardment probabilities" if __FILE__ != $0  
-      $gui.print_to_console("calculating bombardment probabilities\n") if __FILE__ == $0
+      print "calculating bombardment probabilities\n"
       bprobs = bombarders.probs
     end
 
 #TODO: calculate army IPCs here as well    
-    puts "calculating attacker probabilities" if __FILE__ != $0  
-    $gui.print_to_console("calculating attacker probabilities\n") if __FILE__ == $0    
+    print "calculating attacker probabilities\n"  
     aprobs = Array.new(a.size + 1,nil) #holds probabilities
     ahits = Array.new(a.size + 1,nil) #holds maximum number of hits for an army size
     for i in (0..@a.size)
@@ -310,8 +318,7 @@ class Battle
     aprobs.reverse!
     ahits.reverse!
         
-    puts "calculating defender probabilities" if __FILE__ != $0  
-    $gui.print_to_console("calculating defender probabilities\n") if __FILE__ == $0    
+    print "calculating defender probabilities\n"  
     dprobs = Array.new(d.size + 1,nil)
     #since d doesn't have heavy bombers, hits == size always
 #    dhits = Array.new(d.size + 1,nil)
@@ -332,8 +339,7 @@ class Battle
 #column to compensate. That way, instead of taking an infinite number of rolls
 #to converge, it will coverge in finite time -- less than the number of states.
 
-    puts "creating transition matrix (#{(@a.size + 1) * (@d.size + 1)} columns)" if __FILE__ != $0  
-    $gui.print_to_console("creating transition matrix (#{(@a.size + 1) * (@d.size + 1)} columns)\n") if __FILE__ == $0  
+    print "creating transition matrix (#{(@a.size + 1) * (@d.size + 1)} columns)\n" 
 
     if $use_gsl
       @transmat = GSL::Matrix.zeros((@a.size + 1) * (@d.size + 1), (@a.size + 1) * (@d.size + 1))
@@ -342,8 +348,7 @@ class Battle
     end
 
     for col in (0..(@transmat.size - 1))
-      print "#{col + 1} " if __FILE__ != $0  
-      $gui.print_to_console("#{col + 1} ") if __FILE__ == $0  
+      print "#{col + 1} " 
       ra, rd = numcon(col)
       for row in (col..(@transmat.size - 1)) #only need consider lower triangle
         ca, cd = numcon(row)
@@ -386,8 +391,7 @@ class Battle
         #it's already zero otherwise
       end
     end
-    print "\n" if __FILE__ != $0  
-    $gui.print_to_console("\n") if __FILE__ == $0  
+    print "\n" 
     unless $use_gsl
       @transmat = Matrix.rows(@transmat)
     end
@@ -396,10 +400,13 @@ class Battle
 #steps, hovever, not all units need be eliminated (only all the units of one side)
 #so we can do one less battle (the '-1')
     reps = @a.size + @d.size - 1
-    puts "solving with matrix: 1..#{reps}" if __FILE__ != $0  
-    $gui.print_to_console("solving with matrix: 1..#{reps}\n") if __FILE__ == $0  
+    print "solving with matrix: 1..#{reps}\n"
 
-    #sarr contains the initial state of the state vector -- the complicated setup is to do bombardments
+    #sarr contains the initial state of the state vector -- the complicated
+    #setup is to do bombardments
+    #NOTE:we can simplify this logic because of how things are aranged in the
+    #state vectpr -- the first @a.size states are the ones where defence has
+    #lost troops but attack has not
     sarr = Array.new(@transmat.size){|i|
       na, nd = numcon(i)
       hits = @d.size - nd
@@ -424,16 +431,13 @@ class Battle
       @state = Vector.elements(sarr)
     end
     1.upto(reps){|i|
-      print i, " " if __FILE__ != $0  
-      $gui.print_to_console("#{i} ") if __FILE__ == $0  
+      print "#{i} "
       @state = @transmat * @state
     }
-    print "\n" if __FILE__ != $0  
-    $gui.print_to_console("\n") if __FILE__ == $0  
+    print "\n"
 
     @t = Time.now.to_f - start
-    puts "Operation completed in #{@t} seconds" if __FILE__ != $0  
-    $gui.print_to_console("Operation completed in #{@t} seconds\n") if __FILE__ == $0  
+    print "Operation completed in #{@t} seconds\n"
   end
   def acumprobs
     probs = Array.new(@a.size, 0.0)
@@ -803,6 +807,10 @@ class BattleGUI
     @combinedBombardment = TkCheckButton.new(tframe,:text=>"Comb. Bom.",:command=>@aupdate).grid(:column=>2,:row=>0,:padx=>5,:pady=>5)
     @jets = TkCheckButton.new(tframe,:text=>"Jets",:command=>@dupdate).grid(:column=>3,:row=>0,:padx=>5,:pady=>5)
     @superSubs = TkCheckButton.new(tframe,:text=>"Super Subs",:command=>@aupdate).grid(:column=>4,:row=>0,:padx=>5,:pady=>5)
+  end
+  def update_lists
+    @dnames.set_list(@dunits.collect{|unit|unit.class})
+    @anames.set_list(@aunits.collect{|unit|unit.class})
   end
   def print_to_console(s)
     @console.insert('end',s)

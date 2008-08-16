@@ -507,34 +507,6 @@ class BattleGUI
       @aunitsnums.each{|sbox| sbox.set("0")}
       @aupdate.call
     }
-    aunitup = proc{
-      index = @alist.curselection[0]
-      if (index != nil) and (index > 0)
-        unless @aunits[index].is_a?(Battleship) and @aunits[index-1].is_a?(Bship1stHit)
-          temp = @aunits[index-1]
-          @aunits[index-1] = @aunits[index]
-          @aunits[index] = temp
-          @anames.set_list(@aunits.collect{|unit|unit.class})
-          @alist.see(index - 1)
-          @alist.selection_clear(index)
-          @alist.selection_set(index - 1)
-        end
-      end
-    }
-    aunitdown = proc{
-      index = @alist.curselection[0]
-      if (index != nil) and (@aunits.size > 1) and (index < (@aunits.size - 1))
-        unless @aunits[index+1].is_a?(Battleship) and @aunits[index].is_a?(Bship1stHit)
-          temp = @aunits[index+1]
-          @aunits[index+1] = @aunits[index]
-          @aunits[index] = temp
-          @anames.set_list(@aunits.collect{|unit|unit.class})
-          @alist.see(index + 1)
-          @alist.selection_clear(index)
-          @alist.selection_set(index + 1)
-        end
-      end     
-    }
     aenableother = proc{
       @aup.state('active')
       @adown.state('active')     
@@ -623,8 +595,8 @@ class BattleGUI
     @alist = TkListbox.new(aframe,'listvariable'=>@anames,'height' => 12,'yscrollcommand'=> ayscroll,:font=>'TkFixedFont').grid('column'=>2, 'row'=>2,'rowspan'=>7,'columnspan'=>2, 'pady'=>5)
     @alist.bind('<ListboxSelect>'){@asort.set_value('other');aenableother.call}
     @albscroll = TkScrollbar.new(aframe,'orient'=>'vertical','command'=>ascroll).grid('column'=>4, 'row'=>2,'rowspan'=>7, 'padx'=>5,'sticky'=>'ns')
-    @aup = TkButton.new(aframe,'text'=>'Up','command'=>aunitup).grid('column'=>2, 'row'=>9, 'padx'=>5)
-    @adown = TkButton.new(aframe,'text'=>'Down','command'=>aunitdown).grid('column'=>3, 'row'=>9, 'padx'=>5)
+    @aup = TkButton.new(aframe,'text'=>'Up','command'=>proc {self.move_unit(@aunits,@alist,:up)}).grid('column'=>2, 'row'=>9, 'padx'=>5)
+    @adown = TkButton.new(aframe,'text'=>'Down','command'=>proc {self.move_unit(@aunits,@alist,:down)}).grid('column'=>3, 'row'=>9, 'padx'=>5)
     @aup.state('disabled')
     @adown.state('disabled')
     TkButton.new(aframe,'text'=>'Clear','command'=>aclear).grid('column'=>2, 'row'=>10, 'padx'=>5)
@@ -633,34 +605,6 @@ class BattleGUI
     dclear = proc {
       @dunitsnums.each{|sbox| sbox.set("0")}
       @dupdate.call
-    }
-    dunitup = proc{
-      index = @dlist.curselection[0]
-      if (index != nil) and (index > 0)
-        unless @dunits[index].is_a?(Battleship) and @dunits[index-1].is_a?(Bship1stHit)
-          temp = @dunits[index-1]
-          @dunits[index-1] = @dunits[index]
-          @dunits[index] = temp
-          @dnames.set_list(@dunits.collect{|unit|unit.class})
-          @dlist.see(index - 1)
-          @dlist.selection_clear(index)
-          @dlist.selection_set(index - 1)
-        end
-      end
-    }
-    dunitdown = proc{
-      index = @dlist.curselection[0]
-      if (index != nil) and (@dunits.size > 1) and (index < (@dunits.size - 1))
-        unless @dunits[index+1].is_a?(Battleship) and @dunits[index].is_a?(Bship1stHit)
-          temp = @dunits[index+1]
-          @dunits[index+1] = @dunits[index]
-          @dunits[index] = temp
-          @dnames.set_list(@dunits.collect{|unit|unit.class})
-          @dlist.see(index + 1)
-          @dlist.selection_clear(index)
-          @dlist.selection_set(index + 1)
-        end
-      end     
     }
     denableother = proc{
       @dup.state('active')
@@ -740,8 +684,8 @@ class BattleGUI
     @dlist = TkListbox.new(dframe,'listvariable'=>@dnames,'height' => 12,'yscrollcommand'=> dyscroll,:font=>'TkFixedFont').grid('column'=>2, 'row'=>2,'rowspan'=>7,'columnspan'=>2, 'pady'=>5)
     @dlist.bind('<ListboxSelect>'){@dsort.set_value('other');denableother.call}
     @dlbscroll = TkScrollbar.new(dframe,'orient'=>'vertical','command'=>dscroll).grid('column'=>4, 'row'=>2,'rowspan'=>7, 'padx'=>5,'sticky'=>'ns')
-    @dup = TkButton.new(dframe,'text'=>'Up','command'=>dunitup).grid('column'=>2, 'row'=>9, 'padx'=>5)
-    @ddown = TkButton.new(dframe,'text'=>'Down','command'=>dunitdown).grid('column'=>3, 'row'=>9, 'padx'=>5)
+    @dup = TkButton.new(dframe,'text'=>'Up','command'=>proc {self.move_unit(@dunits,@dlist,:up)}).grid('column'=>2, 'row'=>9, 'padx'=>5)
+    @ddown = TkButton.new(dframe,'text'=>'Down','command'=>proc {self.move_unit(@dunits,@dlist,:down)}).grid('column'=>3, 'row'=>9, 'padx'=>5)
     @dup.state('disabled')
     @ddown.state('disabled')
     TkButton.new(dframe,'text'=>'Clear','command'=>dclear).grid('column'=>2, 'row'=>10, 'padx'=>5)
@@ -808,9 +752,30 @@ class BattleGUI
     @jets = TkCheckButton.new(tframe,:text=>"Jets",:command=>@dupdate).grid(:column=>3,:row=>0,:padx=>5,:pady=>5)
     @superSubs = TkCheckButton.new(tframe,:text=>"Super Subs",:command=>@aupdate).grid(:column=>4,:row=>0,:padx=>5,:pady=>5)
   end
+  def move_unit(units,list,direction)
+    index = list.curselection[0]
+    if direction == :down
+      i = 1
+      clear = (index != nil) && (units.size > 1) && (index < (units.size - 1)) &&
+        !(units[index+1].is_a?(Battleship) and units[index].is_a?(Bship1stHit))
+    else #:up
+      i = -1
+      clear = (index != nil) && (index > 0) &&
+        !(units[index].is_a?(Battleship) and units[index-1].is_a?(Bship1stHit))
+    end
+    if clear
+      temp = units[index+i]
+      units[index+i] = units[index]
+      units[index] = temp
+      list.see(index + i)
+      list.selection_clear(index)
+      list.selection_set(index + i)
+      self.update_lists
+    end     
+  end
   def update_lists
-    @dnames.set_list(@dunits.collect{|unit|unit.class})
-    @anames.set_list(@aunits.collect{|unit|unit.class})
+    @dnames.set_list(@dunits.collect{|unit|unit.class}) if defined?(@dunits)
+    @anames.set_list(@aunits.collect{|unit|unit.class}) if defined?(@aunits)
   end
   def print_to_console(s)
     @console.insert('end',s)

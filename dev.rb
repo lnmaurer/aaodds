@@ -507,35 +507,11 @@ class BattleGUI
       @aunitsnums.each{|sbox| sbox.set("0")}
       @aupdate.call
     }
-    aenableother = proc{
-      @aup.state('active')
-      @adown.state('active')     
-    }
-    @aenableland = proc{
-      @aunitsnums[0..2].each{|sbox| sbox.state('normal')}
-    }
-    @adisableland = proc{
-      @aunitsnums[0..2].each{|sbox| sbox.state('disabled');sbox.set(0)}
-    }
-    @aenablesea = proc{
-      @aunitsnums[5..9].each{|sbox| sbox.state('normal')}
-    }
-    @adisablesea = proc{
-      if @combinedBombardment.get_value == '1'
-        @aunitsnums[5].state('normal')
-      else
-        @aunits = @aunits.reject{|u| u.is_a?(Destroyer)}
-        @aunitsnums[5].state('disabled')
-        @aunitsnums[5].set(0)
-      end
-      @aunitsnums[7..9].each{|sbox| sbox.state('disabled');sbox.set(0)}
-    }
     @aupdate = proc{
       if @alist.curselection.size != 0
         @alist.selection_clear(@alist.curselection[0])
       end
-      @aup.state('disabled')
-      @adown.state('disabled')
+      self.disable_buttons(@aup,@adown)
       @aunits = Array.new
       @aunitsnums[0].get.to_i.times {@aunits.push(Infantry.new(true))}
       @aunitsnums[1].get.to_i.times {@aunits.push(Tank.new(true))}
@@ -543,11 +519,9 @@ class BattleGUI
 
       @ahas_land = @aunits.any?{|unit| unit.type == 'land'}
       if @ahas_land or @dhas_land
-        @adisablesea.call
-        @ddisablesea.call
+        self.disable_sea
       else
-        @aenablesea.call
-        @denablesea.call
+        self.enable_sea
       end
 
       @aunitsnums[3].get.to_i.times {@aunits.push(Fighter.new(true,@jets.get_value == '1'))}
@@ -562,11 +536,9 @@ class BattleGUI
 #      @aunits = @aunits.reject{|unit| unit.is_a?(Bship1stHit)} if ahas_land #if there are land units, take out the first hit
       @ahas_sea = @aunits.any?{|unit| (unit.type == 'sea') and (not(unit.is_a?(Battleship) or unit.is_a?(Bship1stHit) or (unit.is_a?(Destroyer) and (@combinedBombardment.get_value == '1'))))}
       if @ahas_sea or @dhas_sea
-        @adisableland.call
-        @ddisableland.call
+        self.disable_land
       else
-        @aenableland.call
-        @denableland.call
+        self.enable_land
       end
 
       if @asort.to_s == 'value'
@@ -576,7 +548,7 @@ class BattleGUI
         @aunits.sort!{|a,b| (a.power <=> b.power) == 0 ? a.value <=> b.value : a.power <=> b.power}
       end
 
-      @anames.set_list(@aunits.collect{|unit|unit.class})
+      self.update_lists
     }
     row = -1
     @aunitsnums = ['Infantry', 'Tank', 'Artillery', 'Fighter', 'Bomber','Destroyer','Battleship','Carrier','Transport','Sub'].collect { |label|
@@ -588,12 +560,12 @@ class BattleGUI
     @asort.set_value('power')
     TkRadioButton.new(aframe,'text'=>'Power','variable'=>@asort,'value'=>'power','command'=>@aupdate).grid('column'=>3, 'row'=>0, 'padx'=>5, 'pady'=>5)
     TkRadioButton.new(aframe,'text'=>'Value','variable'=>@asort,'value'=>'value','command'=>@aupdate).grid('column'=>2, 'row'=>1, 'padx'=>5, 'pady'=>5)
-    TkRadioButton.new(aframe,'text'=>'Other','variable'=>@asort,'value'=>'other','command'=>aenableother).grid('column'=>3, 'row'=>1, 'padx'=>5, 'pady'=>5)
+    TkRadioButton.new(aframe,'text'=>'Other','variable'=>@asort,'value'=>'other','command'=>proc{self.enable_buttons(@aup,@adown)}).grid('column'=>3, 'row'=>1, 'padx'=>5, 'pady'=>5)
     ayscroll = proc{|*args| @albscroll.set(*args)}
     ascroll = proc{|*args| @alist.yview(*args)}
     @anames = TkVariable.new
     @alist = TkListbox.new(aframe,'listvariable'=>@anames,'height' => 12,'yscrollcommand'=> ayscroll,:font=>'TkFixedFont').grid('column'=>2, 'row'=>2,'rowspan'=>7,'columnspan'=>2, 'pady'=>5)
-    @alist.bind('<ListboxSelect>'){@asort.set_value('other');aenableother.call}
+    @alist.bind('<ListboxSelect>'){@asort.set_value('other');self.enable_buttons(@aup,@adown)}
     @albscroll = TkScrollbar.new(aframe,'orient'=>'vertical','command'=>ascroll).grid('column'=>4, 'row'=>2,'rowspan'=>7, 'padx'=>5,'sticky'=>'ns')
     @aup = TkButton.new(aframe,'text'=>'Up','command'=>proc {self.move_unit(@aunits,@alist,:up)}).grid('column'=>2, 'row'=>9, 'padx'=>5)
     @adown = TkButton.new(aframe,'text'=>'Down','command'=>proc {self.move_unit(@aunits,@alist,:down)}).grid('column'=>3, 'row'=>9, 'padx'=>5)
@@ -606,28 +578,11 @@ class BattleGUI
       @dunitsnums.each{|sbox| sbox.set("0")}
       @dupdate.call
     }
-    denableother = proc{
-      @dup.state('active')
-      @ddown.state('active')     
-    }
-    @denableland = proc{
-      @dunitsnums[0..2].each{|sbox| sbox.state('normal')}
-    }
-    @ddisableland = proc{
-      @dunitsnums[0..2].each{|sbox| sbox.state('disabled')}
-    }
-    @denablesea = proc{
-      @dunitsnums[5..9].each{|sbox| sbox.state('normal')}
-    }
-    @ddisablesea = proc{
-      @dunitsnums[5..9].each{|sbox| sbox.state('disabled')}
-    }
     @dupdate = proc{
       if @dlist.curselection.size != 0
         @dlist.selection_clear(@dlist.curselection[0])
       end
-      @dup.state('disabled')
-      @ddown.state('disabled')
+      self.disable_buttons(@dup,@ddown)
       @dunits = Array.new
       @dunitsnums[0].get.to_i.times {@dunits.push(Infantry.new(false))}
       @dunitsnums[1].get.to_i.times {@dunits.push(Tank.new(false))}
@@ -651,21 +606,17 @@ class BattleGUI
       @dhas_land = @dunits.any?{|unit| unit.type == 'land'}
       @dhas_sea = @dunits.any?{|unit| unit.type == 'sea'}
       if @dhas_land or @ahas_land
-        @adisablesea.call
-        @ddisablesea.call
+        self.disable_sea
       else
-        @aenablesea.call
-        @denablesea.call
+        self.enable_sea
       end
       if @dhas_sea or @ahas_sea
-        @adisableland.call
-        @ddisableland.call
+        self.disable_land
       else
-        @aenableland.call
-        @denableland.call
+        self.enable_land
       end
 
-      @dnames.set_list(@dunits.collect{|unit|unit.class})
+      self.update_lists
     }
     row = -1
     @dunitsnums = ['Infantry', 'Tank', 'Artillery', 'Fighter', 'Bomber','Destroyer','Battleship','Carrier','Transport','Sub'].collect { |label|
@@ -677,12 +628,12 @@ class BattleGUI
     @dsort.set_value('power')
     TkRadioButton.new(dframe,'text'=>'Power','variable'=>@dsort,'value'=>'power','command'=>@dupdate).grid('column'=>3, 'row'=>0, 'padx'=>5, 'pady'=>5)
     TkRadioButton.new(dframe,'text'=>'Value','variable'=>@dsort,'value'=>'value','command'=>@dupdate).grid('column'=>2, 'row'=>1, 'padx'=>5, 'pady'=>5)
-    TkRadioButton.new(dframe,'text'=>'Other','variable'=>@dsort,'value'=>'other','command'=>denableother).grid('column'=>3, 'row'=>1, 'padx'=>5, 'pady'=>5)
+    TkRadioButton.new(dframe,'text'=>'Other','variable'=>@dsort,'value'=>'other','command'=>proc{self.enable_buttons(@dup,@ddown)}).grid('column'=>3, 'row'=>1, 'padx'=>5, 'pady'=>5)
     dyscroll = proc{|*args| @dlbscroll.set(*args)}
     dscroll = proc{|*args| @dlist.yview(*args)}
     @dnames = TkVariable.new('')
     @dlist = TkListbox.new(dframe,'listvariable'=>@dnames,'height' => 12,'yscrollcommand'=> dyscroll,:font=>'TkFixedFont').grid('column'=>2, 'row'=>2,'rowspan'=>7,'columnspan'=>2, 'pady'=>5)
-    @dlist.bind('<ListboxSelect>'){@dsort.set_value('other');denableother.call}
+    @dlist.bind('<ListboxSelect>'){@dsort.set_value('other');self.enable_buttons(@dup,@ddown)}
     @dlbscroll = TkScrollbar.new(dframe,'orient'=>'vertical','command'=>dscroll).grid('column'=>4, 'row'=>2,'rowspan'=>7, 'padx'=>5,'sticky'=>'ns')
     @dup = TkButton.new(dframe,'text'=>'Up','command'=>proc {self.move_unit(@dunits,@dlist,:up)}).grid('column'=>2, 'row'=>9, 'padx'=>5)
     @ddown = TkButton.new(dframe,'text'=>'Down','command'=>proc {self.move_unit(@dunits,@dlist,:down)}).grid('column'=>3, 'row'=>9, 'padx'=>5)
@@ -751,6 +702,32 @@ class BattleGUI
     @combinedBombardment = TkCheckButton.new(tframe,:text=>"Comb. Bom.",:command=>@aupdate).grid(:column=>2,:row=>0,:padx=>5,:pady=>5)
     @jets = TkCheckButton.new(tframe,:text=>"Jets",:command=>@dupdate).grid(:column=>3,:row=>0,:padx=>5,:pady=>5)
     @superSubs = TkCheckButton.new(tframe,:text=>"Super Subs",:command=>@aupdate).grid(:column=>4,:row=>0,:padx=>5,:pady=>5)
+  end
+  def disable_land
+    self.disable_buttons(@aunitsnums[0..2],@dunitsnums[0..2])
+  end
+  def disable_sea
+    if @combinedBombardment.get_value == '1'
+      @aunitsnums[5].state('normal')
+    else
+      @aunits = @aunits.reject{|u| u.is_a?(Destroyer)}
+      @aunitsnums[5].state('disabled')
+      @aunitsnums[5].set(0)
+    end
+#      @aunitsnums[7..9].each{|sbox| sbox.state('disabled');sbox.set(0)}
+    self.disable_buttons(@aunitsnums[7..9],@dunitsnums[5..9])
+  end
+  def enable_land
+    self.enable_buttons(@aunitsnums[0..2],@dunitsnums[0..2])
+  end
+  def enable_sea
+    self.enable_buttons(@aunitsnums[5..9],@dunitsnums[5..9])
+  end
+  def enable_buttons(*buttons)
+    buttons.flatten.each{|b| b.state('active') if b.is_a?(TkButton); b.state('normal') if b.is_a?(TkSpinbox)}
+  end
+  def disable_buttons(*buttons)
+    buttons.flatten.each{|b|b.state('disabled')}
   end
   def move_unit(units,list,direction)
     index = list.curselection[0]

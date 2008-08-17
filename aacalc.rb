@@ -246,12 +246,19 @@ class Army
     inf.each_with_index{|inf,i| inf.two_power if i < numart}
   end
   
-  def loseone
+  def lose_one
     narr = @arr.collect{|unit| unit.dup}
     narr.pop
     Army.new(narr)
   end
   
+  def lose_one_aircraft
+    lost_one = false
+    narr = @arr.reverse.collect{|unit| unit.dup}
+    narr = narr.reject{|unit| unit.type == 'air' && ! lost_one ? lost_one = true : false}
+    Army.new(narr.reverse)
+  end
+
   def probs
     p = Array.new(@hits + 1, 0)
     p[0] = 1
@@ -311,7 +318,7 @@ class Battle
     for i in (0..@a.size)
       aprobs[i] = a.probs
       ahits[i] = a.hits
-      a = a.loseone
+      a = a.lose_one
     end
     aprobs.reverse!
     ahits.reverse!
@@ -323,7 +330,7 @@ class Battle
     for i in (0..@d.size)
       dprobs[i] = d.probs
 #      dhits[i] = d.hits
-      d = d.loseone
+      d = d.lose_one
     end
     dprobs.reverse!
 
@@ -686,13 +693,14 @@ class BattleGUI
       end
 
       @a = Army.new(@aunits.reverse)
-      @aunits = @oldaunits if has_land and has_sea
       @d = Army.new(@dunits.reverse)
       @b = Battle.new(@a,@d,bombarders)
+
       @attackerProb.value = @b.awins.to_s
       @defenderProb.value = @b.dwins.to_s
       @annihilationProb.value = @b.nwins.to_s
       @sumProb.value = @b.tprob.to_s
+      @aunits = @oldaunits if has_land and has_sea
       @anames.value = @anames.list.collect{|s|s.split[0]}.zip(@b.acumprobs.reverse).collect{|a| sprintf("%-11s %.6f",a[0],a[1] ? a[1] : 1)}
       @dnames.value = @dnames.list.collect{|s|s.split[0]}.zip(@b.dcumprobs.reverse).collect{|a| sprintf("%-11s %.6f",a[0],a[1] ? a[1] : 1)}
     }

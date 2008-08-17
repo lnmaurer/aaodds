@@ -282,7 +282,7 @@ end
 
 
 class Battle
-  attr_reader :aprobs, :dprobs, :mat, :transmat, :state, :t
+  attr_reader :aprobs, :dprobs, :mat, :transmat, :state, :t, :a, :d, :bombarders
   def numcon(i)
     [@a.size - (i / (@d.size + 1)), @d.size - (i % (@d.size + 1))]
   end
@@ -294,6 +294,7 @@ class Battle
   def initialize(a,d,bombarders=nil)
     @a = a
     @d = d
+    @bombarders = bombarders
     
     start = Time.now.to_f 
 
@@ -662,6 +663,8 @@ class BattleGUI
          'Heavy Bombers'=> @heavyBombers.get_value == '1', 'Combined Bombardment'=>
          @combinedBombardment.get_value == '1','Jets' => @jets.get_value == '1',
          'Super Subs' => @superSubs.get_value == '1'}
+        battle_details['Bomardment'] = (@b.bombarders != nil)
+        battle_details['Bombarders'] = @b.bombarders.arr.collect{|u| u.class.to_s} if @b.bombarders != nil
         battle_details['Attacking units and odds'] = @a.arr.collect{|u| u.class.to_s}.zip(@b.acumprobs)
         battle_details['Defending units and odds'] = @d.arr.collect{|u| u.class.to_s}.zip(@b.dcumprobs)
         filename = Tk.getSaveFile("filetypes"=>[["Text", ".txt"]])

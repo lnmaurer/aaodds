@@ -245,20 +245,20 @@ class Army
     numart = @arr.inject(0){|sum,unit| sum + (unit.is_a?(Artillery) ? 1 : 0)}
     inf.each_with_index{|inf,i| inf.two_power if i < numart}
   end
-  
+  def dup
+    Army.new(@arr.collect{|unit| unit.dup})
+  end
   def lose_one
     narr = @arr.collect{|unit| unit.dup}
     narr.pop
     Army.new(narr)
   end
-  
   def lose_one_aircraft
     lost_one = false
     narr = @arr.reverse.collect{|unit| unit.dup}
     narr = narr.reject{|unit| unit.type == 'air' && ! lost_one ? lost_one = true : false}
     Army.new(narr.reverse)
   end
-
   def probs
     p = Array.new(@hits + 1, 0)
     p[0] = 1
@@ -285,6 +285,12 @@ class Army
     }
     p
   end
+  def has_aircraft
+    @arr.any?{|unit| unit.type == 'air'}
+  end
+  def num_aircraft
+    @arr.inject(0){|s,u|s + (u.type == 'air').to_i}
+  end
 end
 
 
@@ -298,11 +304,12 @@ class Battle
     ((@a.size + 1)*(@d.size + 1)).times{|x| print numcon(x)[0]," ",numcon(x)[1],"\n"}
   end
 
-  def initialize(a,d,bombarders=nil)
+  def initialize(a,d,bombarders,weight=1.0)
     @a = a
     @d = d
     @bombarders = bombarders
-    
+    @weight = weight    
+
     start = Time.now.to_f 
 
     bprobs = [1] #default is for no bombard hits
@@ -442,7 +449,6 @@ class Battle
     print "\n"
 
     @t = Time.now.to_f - start
-    print "Operation completed in #{@t} seconds\n"
   end
   def acumprobs
     probs = Array.new(@a.size, 0.0)
@@ -452,7 +458,7 @@ class Battle
     }
     cdf = Array.new
     for i in (0..probs.size - 1)
-      cdf[i] = probs[i..-1].inject{|s,p| s + p}
+      cdf[i] = probs[i..-1].inject{|s,p| s + p} * @weight
     end
     cdf    
   end
@@ -464,7 +470,7 @@ class Battle
     }
     cdf = Array.new
     for i in (0..probs.size - 1)
-      cdf[i] = probs[i..-1].inject{|s,p| s + p}
+      cdf[i] = probs[i..-1].inject{|s,p| s + p} * @weight
     end
     cdf    
   end  
@@ -474,7 +480,7 @@ class Battle
       a, d = numcon(i)
       prob += p if (d == 0) and (a != 0)
     }
-    prob
+    prob * @weight
   end
   def dwins
     prob = 0.0
@@ -482,13 +488,13 @@ class Battle
       a, d = numcon(i)
       prob += p if (a == 0) and (d != 0)
     }
-    prob
+    prob * @weight
   end
   def nwins
-    @state[-1]
+    @state[-1] * @weight
   end
   def tprob
-    awins + dwins + nwins
+    (awins + dwins + nwins) * @weight
   end
 end
 
@@ -534,7 +540,7 @@ class BattleGUI
       @aunitsnums[4].get.to_i.times {@aunits.push(Bomber.new(true,@heavyBombers.get_value == '1'))}
       @aunitsnums[5].get.to_i.times {@aunits.push(Destroyer.new(true))}
       @aunitsnums[6].get.to_i.times {@aunits.push(Battleship.new(true))}
-      @aunitsnums[6].get.to_i.times {@aunits.push(Bship1stHit.new(true))} unless @ahas_land
+      @aunitsnums[6].get.to_i.times {@aunits.push(Bship1stHit.new(true))} unless @ahas_land or @dhas_land
       @aunitsnums[7].get.to_i.times {@aunits.push(Carrier.new(true))}
       @aunitsnums[8].get.to_i.times {@aunits.push(Transport.new(true))}
       @aunitsnums[9].get.to_i.times {@aunits.push(Sub.new(true,@superSubs.get_value == '1'))}
@@ -662,47 +668,76 @@ class BattleGUI
 #NOTE: Ruby hashes have no predetermined order, so the results will get printed
 #to the file in a mixed up fashion. This will be fixed in Ruby 1.9 -- for now
 #we'll just have to live with it
-      if defined?(@b)
+      if defined?(@battles)
         battle_details = Hash.new
-        battle_details['Summary of odds'] = {'Attacker wins'=>@b.awins,
-          'Defender wins'=>@b.dwins,'Mutual annihilation'=>@b.nwins}
+        battle_details['Summary of odds'] = {'Attacker wins'=>@pawins,
+          'Defender wins'=>@pdwins,'Mutual annihilation'=>@pnwins}
         battle_details['Technologies'] = {'AAguns'=> @aaGun.get_value == '1',
          'Heavy Bombers'=> @heavyBombers.get_value == '1', 'Combined Bombardment'=>
          @combinedBombardment.get_value == '1','Jets' => @jets.get_value == '1',
          'Super Subs' => @superSubs.get_value == '1'}
-        battle_details['Bomardment'] = (@b.bombarders != nil)
-        battle_details['Bombarders'] = @b.bombarders.arr.collect{|u| u.class.to_s} if @b.bombarders != nil
-        battle_details['Attacking units and odds'] = @a.arr.collect{|u| u.class.to_s}.zip(@b.acumprobs)
-        battle_details['Defending units and odds'] = @d.arr.collect{|u| u.class.to_s}.zip(@b.dcumprobs)
+        battle_details['Bomardment'] = (@bombarders != nil)
+        battle_details['Bombarders'] = @bombarders.arr.collect{|u| u.class.to_s} if @bombarders != nil
+        battle_details['Attacking units and odds'] = @a.arr.collect{|u| u.class.to_s}.zip(@acumprobs)
+        battle_details['Defending units and odds'] = @d.arr.collect{|u| u.class.to_s}.zip(@dcumprobs)
         filename = Tk.getSaveFile("filetypes"=>[["Text", ".txt"]])
         File.open(filename, "w"){|file| file.print(battle_details.to_yaml)} unless filename == ""
       end
     }
     calc = proc{
 #TODO: aa guns and bombard
+      start = Time.now.to_f 
       self.reset_console
     
       has_land = (@aunits + @dunits).any?{|u| u.type == 'land'}
       has_sea = (@aunits + @dunits).any?{|u| u.type == 'sea'}
 
-      bombarders = nil
+      @bombarders = nil
       if has_land and has_sea #then there's a bombardment coming
-        bombarders = Army.new(@aunits.select{|u| u.type == 'sea'})
+        @bombarders = Army.new(@aunits.select{|u| u.type == 'sea'})
         @oldaunits = @aunits #don't want to permantly remove ships -- just need to seperate them for computations
         @aunits = @aunits.reject{|u| u.type == 'sea'}
       end
 
       @a = Army.new(@aunits.reverse)
       @d = Army.new(@dunits.reverse)
-      @b = Battle.new(@a,@d,bombarders)
 
-      @attackerProb.value = @b.awins.to_s
-      @defenderProb.value = @b.dwins.to_s
-      @annihilationProb.value = @b.nwins.to_s
-      @sumProb.value = @b.tprob.to_s
+      @battles = Array.new
+      a = @a.dup
+      numaircraft = @aaGun.get_value == '1' ? a.num_aircraft : 0
+      aircraftindexes = Array.new
+      a.arr.each_with_index{|u,i| aircraftindexes << i if u.type == 'air'}
+      for hits in 0..numaircraft #exceutes even if numaircraft == 0
+        @battles << Battle.new(a,@d,@bombarders, binom(numaircraft,hits,1.0/6.0))
+        a = a.lose_one_aircraft
+      end
+
+      @pawins = @battles.inject(0){|s,b|s + b.awins}
+      @pdwins = @battles.inject(0){|s,b|s + b.dwins}
+      @pnwins = @battles.inject(0){|s,b|s + b.nwins}
+      @pswins = @pawins + @pdwins + @pnwins
+      #d doesn't lose any units from aaguns, so we can just add everything together
+      @dcumprobs = @battles.collect{|b|b.dcumprobs}.inject{|s,a| s.zip(a).collect{|b,c|b+c}}
+      #the same is not true for a, so this takes more work
+      acumprobs = Array.new
+      @battles.each_with_index{|b,i|
+        probs = b.acumprobs.reverse
+        for j in 0..(i-1)
+          probs.insert(aircraftindexes[j],0)
+        end
+        acumprobs << probs.reverse
+      }
+      @acumprobs = acumprobs.inject{|s,a| s.zip(a).collect{|b,c|b+c}}
+
+      @attackerProb.value = @pawins.to_s
+      @defenderProb.value = @pdwins.to_s
+      @annihilationProb.value = @pnwins.to_s
+      @sumProb.value = @pswins.to_s
       @aunits = @oldaunits if has_land and has_sea
-      @anames.value = @anames.list.collect{|s|s.split[0]}.zip(@b.acumprobs.reverse).collect{|a| sprintf("%-11s %.6f",a[0],a[1] ? a[1] : 1)}
-      @dnames.value = @dnames.list.collect{|s|s.split[0]}.zip(@b.dcumprobs.reverse).collect{|a| sprintf("%-11s %.6f",a[0],a[1] ? a[1] : 1)}
+      @anames.value = @anames.list.collect{|s|s.split[0]}.zip(@acumprobs.reverse).collect{|a| sprintf("%-11s %.6f",a[0],a[1] ? a[1] : 1)}
+      @dnames.value = @dnames.list.collect{|s|s.split[0]}.zip(@dcumprobs.reverse).collect{|a| sprintf("%-11s %.6f",a[0],a[1] ? a[1] : 1)}
+
+      print "Operation completed in #{Time.now.to_f - start} seconds\n"
     }
    
     TkLabel.new(cframe, 'text'=>"Attacker wins").grid('column'=>0,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)

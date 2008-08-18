@@ -1,4 +1,3 @@
-require 'rational'
 require 'tkextlib/tile'
 require 'yaml'
 
@@ -103,6 +102,8 @@ class Array
   end
 end
 
+#this is needed to accont for rounding error when adding probabilities
+$error = 0.001
 
 class Unit
   attr_reader :value, :attack, :defend, :type
@@ -273,8 +274,7 @@ class Army
     powers.each_with_index{|num,power|
       pos = Array.new(num + 1,nil)
       for hits in (0..num)
-        #Rational is used to avoid an annoying rounding error that can occour when calculating mag
-        pos[hits] = p.rshift(hits).mult(binom(num,hits, Rational(power, 6)))
+        pos[hits] = p.rshift(hits).mult(binom(num,hits, power/6.0))
       end
       p.size.times{|x|
         p[x] = 0 
@@ -389,15 +389,16 @@ class Battle
         if (ca == ra) and (cd == rd)
          #sometimes this is the only non-zero entry in a column
          #in that case, have mag = 1 to signal that
-         mag = (((pa * pd) < 1) ? 1 / (1 - pa * pd) : 1)
+         #due to rounding errors, sometimes pa * pd < 1 when it should be == 1
+         #to avoid this problem, we introduce $error which is a small number
+         mag = (((pa * pd) < 1 - $error) ? 1 / (1 - pa * pd) : 1.0)
         end 
-
         #assign value if not in a diagonal or if the diagonal is the only non-zero term
-        if (col != row) or (mag == 1)
+        if (col != row) or (mag == 1.0)
           if $use_gsl
-            @transmat[row,col] = (mag * pd * pa).to_f
+            @transmat[row,col] = mag * pd * pa
           else
-            @transmat[row][col] = (mag * pd * pa).to_f
+            @transmat[row][col] = mag * pd * pa
           end
         end
         #it's already zero otherwise

@@ -586,7 +586,9 @@ class BattleGUI
     row = -1
     @aunitsnums = ['Infantry', 'Tank', 'Artillery', 'Fighter', 'Bomber','Destroyer','Battleship','Carrier','Transport','Sub'].collect { |label|
       TkLabel.new(aframe, 'text'=>label).grid('column'=>0,'row'=> (row +=1), 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-      TkSpinbox.new(aframe,'to'=>100, 'from'=>0, 'width'=>3, 'command'=>@aupdate).grid('column'=>1,'row'=> row, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+       sb = TkSpinbox.new(aframe,'to'=>100, 'from'=>0, 'width'=>3, 'command'=>@aupdate)
+       sb.grid('column'=>1,'row'=> row, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+       sb.bind('KeyRelease',@aupdate)
     }
     TkLabel.new(aframe,'text'=>"Sort by:").grid('column'=>2, 'row'=>0, 'padx'=>5, 'pady'=>5)
     @asort = TkVariable.new
@@ -654,7 +656,9 @@ class BattleGUI
     row = -1
     @dunitsnums = ['Infantry', 'Tank', 'Artillery', 'Fighter', 'Bomber','Destroyer','Battleship','Carrier','Transport','Sub'].collect { |label|
       TkLabel.new(dframe, 'text'=>label).grid('column'=>0,'row'=> (row +=1), 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-      TkSpinbox.new(dframe,'to'=>100, 'from'=>0, 'width'=>3,'command'=>@dupdate).grid('column'=>1,'row'=> row, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+      sb = TkSpinbox.new(dframe,'to'=>100, 'from'=>0, 'width'=>3,'command'=>@dupdate)
+      sb.grid('column'=>1,'row'=> row, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+      sb.bind('KeyRelease',@dupdate)
     }
     TkLabel.new(dframe,'text'=>"Sort by:").grid('column'=>2, 'row'=>0, 'padx'=>5, 'pady'=>5)
     @dsort = TkVariable.new
@@ -677,7 +681,7 @@ class BattleGUI
     about = proc {Tk.messageBox('type' => 'ok',
       'icon' => 'info',
       'title' => 'About',
-      'message' => "Aacalc revision 66\n" + 
+      'message' => "Aacalc revision 73\n" + 
       "Copyright (C) 2008 Leon N. Maurer\n" +
       'https://launchpad.net/aacalc' + "\n" +
       "Source code available under the \n" +

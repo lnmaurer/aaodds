@@ -588,7 +588,7 @@ class BattleGUI
       TkLabel.new(aframe, 'text'=>label).grid('column'=>0,'row'=> (row +=1), 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
        sb = TkSpinbox.new(aframe,'to'=>100, 'from'=>0, 'width'=>3, 'command'=>@aupdate)
        sb.grid('column'=>1,'row'=> row, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-       sb.bind('KeyRelease',@aupdate)
+       sb.bind('KeyRelease',@aupdate) #so that the units are updated if the number is typed directly in to the spinbox
     }
     TkLabel.new(aframe,'text'=>"Sort by:").grid('column'=>2, 'row'=>0, 'padx'=>5, 'pady'=>5)
     @asort = TkVariable.new
@@ -658,7 +658,7 @@ class BattleGUI
       TkLabel.new(dframe, 'text'=>label).grid('column'=>0,'row'=> (row +=1), 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
       sb = TkSpinbox.new(dframe,'to'=>100, 'from'=>0, 'width'=>3,'command'=>@dupdate)
       sb.grid('column'=>1,'row'=> row, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-      sb.bind('KeyRelease',@dupdate)
+      sb.bind('KeyRelease',@dupdate) #so that the units are updated if the number is typed directly in to the spinbox
     }
     TkLabel.new(dframe,'text'=>"Sort by:").grid('column'=>2, 'row'=>0, 'padx'=>5, 'pady'=>5)
     @dsort = TkVariable.new
@@ -681,7 +681,7 @@ class BattleGUI
     about = proc {Tk.messageBox('type' => 'ok',
       'icon' => 'info',
       'title' => 'About',
-      'message' => "Aacalc revision 73\n" + 
+      'message' => "Aacalc revision 74\n" + 
       "Copyright (C) 2008 Leon N. Maurer\n" +
       'https://launchpad.net/aacalc' + "\n" +
       "Source code available under the \n" +

@@ -31,6 +31,18 @@ rescue Exception
   $use_gsl = false
 end
 
+alias oldprint print
+#print now prints to the console in the gui
+#TODO: give this all the functionality of the old print
+def print(s)
+  if __FILE__ == $0
+    $gui.print_to_console(s)
+  else
+    oldprint(s)
+  end
+end
+
+#neither gsl nor the built in matrix class includes two useful functions
 if $use_gsl
   class GSL::Vector
     def each_with_index
@@ -43,17 +55,6 @@ if $use_gsl
       (self.size1 == self.size2 ? self.size1 : nil)
     end
   end
-
-alias oldprint print
-#TODO: give this all the functionality of the old print
-def print(s)
-  if __FILE__ == $0
-    $gui.print_to_console(s)
-  else
-    oldprint(s)
-  end
-end
-
 else
   class Vector
     def each_with_index
@@ -105,6 +106,7 @@ class FalseClass
 end
 
 class Array
+  #shifts contents n places to the right
   def rshift(n)
     i = 0
     self.collect{|blah|
@@ -117,6 +119,7 @@ class Array
       t
     }
   end
+  #scalar multiplication
   def mult(n)
     self.collect{|val| n * val}
   end
@@ -281,16 +284,18 @@ class Army
     Army.new(narr.reverse)
   end
   def probs
-    p = Array.new(@hits + 1, 0)
+    p = Array.new(@hits + 1, 0) #p[n] will contain the probability of getting n hits
     p[0] = 1
+    #powers contains the number of units at each power
     powers = Array.new(7,0)
     @arr.each{|unit|
-      if unit.is_a?(Bomber) and unit.heavy
+      if unit.is_a?(Bomber) and unit.heavy #heavy bombers attack twice
         powers[unit.power] += 2
       else
         powers[unit.power] += 1
       end
     }
+    #TODO: remember how this works and write it up
     powers.each_with_index{|num,power|
       pos = Array.new(num + 1,nil)
       for hits in (0..num)
@@ -316,10 +321,13 @@ end
 
 class Battle
   attr_reader :aprobs, :dprobs, :mat, :transmat, :state, :t, :a, :d, :bombarders
+  #each state the battle (which attackers and defeners are still alive) has an
+  #index in arrays and matricies to follow. The following function takes that index
+  #and returns the number of attackers and defenders in the corresponding fate.
   def numcon(i)
     [@a.size - (i / (@d.size + 1)), @d.size - (i % (@d.size + 1))]
   end
-
+  #TODO: do we still need this function?
   def ntest
     ((@a.size + 1)*(@d.size + 1)).times{|x| print numcon(x)[0]," ",numcon(x)[1],"\n"}
   end
@@ -328,7 +336,10 @@ class Battle
     @a = a
     @d = d
     @bombarders = bombarders
-    @weight = weight    
+    #if this battle is (for example) part of a larger battle where AA guns are used
+    #then the weight will correspond the the probability that this battle happens
+    @weight = weight 
+    
 
     start = Time.now.to_f 
 
@@ -471,6 +482,8 @@ class Battle
 
     @t = Time.now.to_f - start
   end
+  #returns an array where the elements correspond to the probability
+  #that the corresponing unit in @arr (the array of units in Army)
   def acumprobs
     probs = Array.new(@a.size, 0.0)
     @state.each_with_index{|p,i|
@@ -494,7 +507,8 @@ class Battle
       cdf[i] = probs[i..-1].inject{|s,p| s + p} * @weight
     end
     cdf    
-  end  
+  end
+  #probabity attacker wins
   def awins
     prob = 0.0
     @state.each_with_index{|p,i|
@@ -512,6 +526,7 @@ class Battle
     prob * @weight
   end
   def nwins
+    #the probability that no one survives the battle is stored in the last place in the array
     @state[-1] * @weight
   end
   def tprob

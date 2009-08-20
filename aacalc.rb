@@ -191,7 +191,7 @@ end
 class Bomber < Unit
   attr_reader :heavy
   def initialize(a,heavy=false)
-    @heavy = heavy and a
+    @heavy = heavy and a #if it's not attacking, then it can't really be heavy
     super(4,1,15,"air",a)
   end
   def dup

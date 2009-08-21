@@ -725,7 +725,6 @@ class BattleGUI
       end
     }
     calc = proc{
-#TODO: aa guns and bombard
       start = Time.now.to_f 
       self.reset_console
     

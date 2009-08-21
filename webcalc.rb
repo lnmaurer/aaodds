@@ -8,16 +8,19 @@ get '/' do
   haml :index
 end
 
-post '/' do
-  
+post '/result' do
+  puts params[:tech]
+  params[:tech]
 end
 
   
 __END__
 
 @@ index
-%h1='Test'
-%form{:method => 'POST', :action => "/"}
+%h1='aacalc'
+%p
+  Instructions: enter information, click 'Calculate', and wait.
+%form{:method => 'POST', :action => "/result"}
   %table
     %tr
       %td{:colspan=>"2"}
@@ -32,43 +35,43 @@ __END__
       %td
         %h2='Attackers'
         %p
-          %input{:type =>'text', :name=>'aInfantry'} Infantry
+          %input{:type =>'text', :size => '3', :name=>'aInfantry'} Infantry
           %br
-          %input{:type =>'text', :name=>'aTanks'} Tanks
+          %input{:type =>'text', :size => '3', :name=>'aTanks'} Tanks
           %br
-          %input{:type =>'text', :name=>'aArtillery'} Artillery
+          %input{:type =>'text', :size => '3', :name=>'aArtillery'} Artillery
           %br
-          %input{:type =>'text', :name=>'aFighter'} Fighter
+          %input{:type =>'text', :size => '3', :name=>'aFighter'} Fighter
           %br
-          %input{:type =>'text', :name=>'aBomber'} Bomber
+          %input{:type =>'text', :size => '3', :name=>'aBomber'} Bomber
           %br
-          %input{:type =>'text', :name=>'aDestroyer'} Destroyer
+          %input{:type =>'text', :size => '3', :name=>'aDestroyer'} Destroyer
           %br
-          %input{:type =>'text', :name=>'aBattleship'} Battleship
+          %input{:type =>'text', :size => '3', :name=>'aBattleship'} Battleship
           %br
-          %input{:type =>'text', :name=>'Transport'} Transport
+          %input{:type =>'text', :size => '3', :name=>'Transport'} Transport
           %br
-          %input{:type =>'text', :name=>'Submarine'} Submarine
+          %input{:type =>'text', :size => '3', :name=>'Submarine'} Submarine
       %td
         %h2='Defenders'
         %p
-          %input{:type =>'text', :name=>'dInfantry'} Infantry
+          %input{:type =>'text', :size => '3', :name=>'dInfantry'} Infantry
           %br
-          %input{:type =>'text', :name=>'dTanks'} Tanks
+          %input{:type =>'text', :size => '3', :name=>'dTanks'} Tanks
           %br
-          %input{:type =>'text', :name=>'dArtillery'} Artillery
+          %input{:type =>'text', :size => '3', :name=>'dArtillery'} Artillery
           %br
-          %input{:type =>'text', :name=>'dFighter'} Fighter
+          %input{:type =>'text', :size => '3', :name=>'dFighter'} Fighter
           %br
-          %input{:type =>'text', :name=>'dBomber'} Bomber
+          %input{:type =>'text', :size => '3', :name=>'dBomber'} Bomber
           %br
-          %input{:type =>'text', :name=>'dDestroyer'} Destroyer
+          %input{:type =>'text', :size => '3', :name=>'dDestroyer'} Destroyer
           %br
-          %input{:type =>'text', :name=>'dBattleship'} Battleship
+          %input{:type =>'text', :size => '3', :name=>'dBattleship'} Battleship
           %br
-          %input{:type =>'text', :name=>'dransport'} Transport
+          %input{:type =>'text', :size => '3', :name=>'dransport'} Transport
           %br
-          %input{:type =>'text', :name=>'dubmarine'} Submarine
+          %input{:type =>'text', :size => '3', :name=>'dubmarine'} Submarine
     %tf
       %td{:colspan=>"2"}
         %input{:type => :submit, :value => "Calculate"}

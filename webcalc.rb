@@ -586,14 +586,14 @@ post '/result' do
 #     self.enable_sea
 #   end
 
-  params[:aFighter].to_i.times {dunits.push(Fighter.new(true,jets))}
-  params[:aBomber].to_i.times {dunits.push(Bomber.new(true,heavyBombers))}
-  params[:aDestroyer].to_i.times {dunits.push(Destroyer.new(true))}
-  params[:aBattleship].to_i.times {dunits.push(Battleship.new(true))}
-  params[:aBattleship].to_i.times {dunits.push(Bship1stHit.new(true))}
-  params[:aCarrier].to_i.times {dunits.push(Carrier.new(true))}
-  params[:aTransport].to_i.times {dunits.push(Transport.new(true))}
-  params[:aSub].to_i.times {dunits.push(Sub.new(true,superSubs))}
+  params[:aFighter].to_i.times {aunits.push(Fighter.new(true,jets))}
+  params[:aBomber].to_i.times {aunits.push(Bomber.new(true,heavyBombers))}
+  params[:aDestroyer].to_i.times {aunits.push(Destroyer.new(true))}
+  params[:aBattleship].to_i.times {aunits.push(Battleship.new(true))}
+  params[:aBattleship].to_i.times {aunits.push(Bship1stHit.new(true))}
+  params[:aCarrier].to_i.times {aunits.push(Carrier.new(true))}
+  params[:aTransport].to_i.times {aunits.push(Transport.new(true))}
+  params[:aSub].to_i.times {aunits.push(Sub.new(true,superSubs))}
 
   #      aunits = aunits.reject{|unit| unit.is_a?(Bship1stHit)} if ahas_land #if there are land units, take out the first hit
 #   @ahas_sea = aunits.any?{|unit| (unit.type == 'sea') and (not(unit.is_a?(Battleship) or unit.is_a?(Bship1stHit) or (unit.is_a?(Destroyer) and (@combinedBombardment.get_value == '1'))))}
@@ -669,23 +669,26 @@ post '/result' do
 
 #DISPLAY RESULTS  
   
-  battle_details = Hash.new
-  battle_details['Summary of odds'] = {'Attacker wins'=>pawins,
+  $battle_details = Hash.new
+  $battle_details['Summary of odds'] = {'Attacker wins'=>pawins,
     'Defender wins'=>pdwins,'Mutual annihilation'=>pnwins}
-  battle_details['Technologies'] = {'AAguns'=> aaGun,
+  $battle_details['Technologies'] = {'AAguns'=> aaGun,
     'Heavy Bombers'=> heavyBombers, 'Combined Bombardment'=>
     combinedBombardment,'Jets' => jets,
     'Super Subs' => superSubs}
-  battle_details['Bomardment'] = (bombarders != nil)
-  battle_details['Bombarders'] = bombarders.arr.collect{|u| u.class.to_s} if bombarders != nil
-  battle_details['Attacking units and odds'] = a.arr.collect{|u| u.class.to_s}.zip(acumprobs)
-  battle_details['Defending units and odds'] = d.arr.collect{|u| u.class.to_s}.zip(dcumprobs)
+  $battle_details['Bomardment'] = (bombarders != nil)
+  $battle_details['Bombarders'] = bombarders.arr.collect{|u| u.class.to_s + ' '} if bombarders != nil
+  $battle_details['Attacking units and odds'] = a.arr.collect{|u| u.class.to_s + ' '}.zip(acumprobs)
+  $battle_details['Defending units and odds'] = d.arr.collect{|u| u.class.to_s + ' '}.zip(dcumprobs)
 #  filename = Tk.getSaveFile("filetypes"=>[["Text", ".txt"]])
 #  File.open(filename, "w"){|file| file.print(battle_details.to_yaml)} unless filename == ""  
   
   #results to be displayed
 #  haml :results
-  battle_details.to_yaml
+#  battle_details.to_yaml
+#  $res = battle_details.to_yaml.sub(/($|\n|\r)/,'<br />')
+#  puts $res
+  haml :results
 end
 
   
@@ -724,9 +727,9 @@ __END__
           %br
           %input{:type =>'text', :size => '3', :name=>'aBattleship'} Battleship
           %br
-          %input{:type =>'text', :size => '3', :name=>'Transport'} Transport
+          %input{:type =>'text', :size => '3', :name=>'aTransport'} Transport
           %br
-          %input{:type =>'text', :size => '3', :name=>'Submarine'} Submarine
+          %input{:type =>'text', :size => '3', :name=>'aSubmarine'} Submarine
       %td
         %h2='Defenders'
         %p
@@ -744,13 +747,33 @@ __END__
           %br
           %input{:type =>'text', :size => '3', :name=>'dBattleship'} Battleship
           %br
-          %input{:type =>'text', :size => '3', :name=>'dransport'} Transport
+          %input{:type =>'text', :size => '3', :name=>'dTransport'} Transport
           %br
-          %input{:type =>'text', :size => '3', :name=>'dubmarine'} Submarine
+          %input{:type =>'text', :size => '3', :name=>'dSubmarine'} Submarine
     %tf
       %td{:colspan=>"2"}
         %input{:type => :submit, :value => "Calculate"}
 
 @@ results
+%h1='Results'
+%h2='Summary of odds'
 %p
-  - battle_details.to_yaml
+  Attacker wins: #{$battle_details['Summary of odds']['Attacker wins']}
+  %br
+  Defender wins: #{$battle_details['Summary of odds']['Defender wins']}
+  %br
+  Mutual annihilation: #{$battle_details['Summary of odds']['Mutual annihilation']}
+%h2='Tech'
+- if $battle_details['Bomardment']
+  %h2='Bombarders'
+  %ul
+    - $battle_details['Bombarders'].each do |s|
+      %li=s
+%h2='Attacking units and odds'
+%ul
+  - $battle_details['Attacking units and odds'].each do |s|
+    %li=s
+%h2='Defending units and odds'
+%ul
+  - $battle_details['Defending units and odds'].each do |s|
+    %li=s

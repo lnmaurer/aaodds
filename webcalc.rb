@@ -523,8 +523,12 @@ end
 
 post '/result' do
 
-  #TODO: make tech actually work
-  aaGun = jets = heavyBombers = superSubs = combinedBombardment = false
+  #Techs
+  aaGun = (params[:AAGun] != nil)
+  heavyBombers = (params[:HeavyBombers] != nil)
+  combinedBombardment = (params[:CombinedBombardment] != nil)
+  jets = (params[:Jets] != nil)
+  superSubs = (params[:SuperSubs] != nil)
   
 #DEFENDERS  
   
@@ -711,15 +715,15 @@ __END__
             %h2='Tech'
             %p
               AA Gun
-              %input{:type =>'checkbox', :name=>'tech', :value=>'AAGun'}
+              %input{:type =>'checkbox', :name=>'AAGun'}
               Heavy Bombers
-              %input{:type =>'checkbox', :name=>'tech', :value=>'HeavyBombers'}
+              %input{:type =>'checkbox', :name=>'HeavyBombers'}
               Combined Bombardment
-              %input{:type =>'checkbox', :name=>'tech', :value=>'CombinedBombardment'}
+              %input{:type =>'checkbox', :name=>'CombinedBombardment'}
               Jets
-              %input{:type =>'checkbox', :name=>'tech', :value=>'Jets'}
+              %input{:type =>'checkbox', :name=>'Jets'}
               Super Subs
-              %input{:type =>'checkbox', :name=>'tech', :value=>'SuperSubs'}
+              %input{:type =>'checkbox', :names=>'SuperSubs'}
         %tr
           %td
             %h2='Attackers'
@@ -799,6 +803,9 @@ __END__
       %br
       Mutual annihilation: #{$battle_details['Summary of odds']['Mutual annihilation']}
     %h2='Tech'
+    %ul
+      - $battle_details['Technologies'].each_pair do |key,value|
+        %li #{key}: #{value}
     - if $battle_details['Bomardment']
       %h2='Bombarders'
       %ul

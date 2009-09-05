@@ -13,11 +13,13 @@ rescue Exception
   $use_gsl = false
 end
 
-$output =''
+$battleDetails = Hash.new
+$calcThreads = Hash.new
+$output = Hash.new('')
 alias oldprint print
 def print(s)
-  $output = $output + s
-  oldprint s
+  $output[Thread.current.object_id] += s
+#  oldprint s
 end
 
 #neither gsl nor the built in matrix class includes two useful functions
@@ -519,7 +521,7 @@ end
 
 post '/result' do
 
-  $calcThread = Thread.new{
+  calcThread = Thread.new{
     #Techs
     aaGun = (params[:AAGun] != nil)
     heavyBombers = (params[:HeavyBombers] != nil)
@@ -670,18 +672,20 @@ post '/result' do
 
   #DISPLAY RESULTS  
     
-    $battle_details = Hash.new
-    $battle_details['Summary of odds'] = {'Attacker wins'=>pawins,
+    battle_details = Hash.new
+    battle_details['Summary of odds'] = {'Attacker wins'=>pawins,
       'Defender wins'=>pdwins,'Mutual annihilation'=>pnwins,'Sum'=>pawins+pdwins+pnwins}
-    $battle_details['Technologies'] = {'AAguns'=> aaGun,
+    battle_details['Technologies'] = {'AAguns'=> aaGun,
       'Heavy Bombers'=> heavyBombers, 'Combined Bombardment'=>
       combinedBombardment,'Jets' => jets,
       'Super Subs' => superSubs}
-    $battle_details['Bomardment'] = (bombarders != nil)
-    $battle_details['Bombarders'] = bombarders.arr.collect{|u| u.class.to_s + ' '} if bombarders != nil
-    $battle_details['Attacking units and odds'] = a.arr.collect{|u| u.class.to_s + ' '}.zip(acumprobs)
-    $battle_details['Defending units and odds'] = d.arr.collect{|u| u.class.to_s + ' '}.zip(dcumprobs)
+    battle_details['Bomardment'] = (bombarders != nil)
+    battle_details['Bombarders'] = bombarders.arr.collect{|u| u.class.to_s + ' '} if bombarders != nil
+    battle_details['Attacking units and odds'] = a.arr.collect{|u| u.class.to_s + ' '}.zip(acumprobs)
+    battle_details['Defending units and odds'] = d.arr.collect{|u| u.class.to_s + ' '}.zip(dcumprobs)
+    $battleDetails[calcThread.object_id] = battle_details
   }
+  $calcThreads[calcThread.object_id] = calcThread
 #  filename = Tk.getSaveFile("filetypes"=>[["Text", ".txt"]])
 #  File.open(filename, "w"){|file| file.print(battle_details.to_yaml)} unless filename == ""  
   
@@ -690,16 +694,32 @@ post '/result' do
 #  battle_details.to_yaml
 #  $res = battle_details.to_yaml.sub(/($|\n|\r)/,'<br />')
 #  puts $res
-  redirect "/results"
+  redirect "/results/#{calcThread.object_id}"
 end
 
 
-get '/results' do
-  if $calcThread.status
+get '/results/:thread_id' do
+  @thread_id = params[:thread_id].to_i
+  if not $calcThreads.has_key?(@thread_id)
+    redirect "/battlenotfound"
+  elsif $calcThreads[@thread_id].status
     haml :calculating
   else
     haml :results
   end
+end
+
+get '/battlenotfound' do
+  haml <<'nobattle'
+%html{:xmlns => "http://www.w3.org/1999/xhtml", "xml:lang" => "en", :lang => "en"}
+  %head
+    %meta{"http-equiv" => "Content-type", :content =>" text/html;charset=UTF-8"}
+    %title Calculating
+  %body
+    %h1 The battle you are looking for cannot be found
+    %p
+      Are you sure you entered the correct URL? If you are looking for an old battle, note that they may be deleted periodically.
+nobattle
 end
   
 __END__
@@ -806,35 +826,36 @@ __END__
     %h1='Results'
     %h2='Summary of odds'
     %p
-      Attacker wins: #{$battle_details['Summary of odds']['Attacker wins']}
+      Attacker wins: #{$battleDetails[@thread_id]['Summary of odds']['Attacker wins']}
       %br
-      Defender wins: #{$battle_details['Summary of odds']['Defender wins']}
+      Defender wins: #{$battleDetails[@thread_id]['Summary of odds']['Defender wins']}
       %br
-      Mutual annihilation: #{$battle_details['Summary of odds']['Mutual annihilation']}
+      Mutual annihilation: #{$battleDetails[@thread_id]['Summary of odds']['Mutual annihilation']}
       %br
-      Sum: #{$battle_details['Summary of odds']['Sum']}
+      Sum: #{$battleDetails[@thread_id]['Summary of odds']['Sum']}
     %h2='Tech'
     %ul
-      - $battle_details['Technologies'].each_pair do |key,value|
+      - $battleDetails[@thread_id]['Technologies'].each_pair do |key,value|
         %li #{key}: #{value}
-    - if $battle_details['Bomardment']
+    - if $battleDetails[@thread_id]['Bomardment']
       %h2='Bombarders'
       %ul
-        - $battle_details['Bombarders'].each do |s|
+        - $battleDetails[@thread_id]['Bombarders'].each do |s|
           %li=s
     %h2='Attacking units and odds'
     %ul
-      - $battle_details['Attacking units and odds'].each do |s|
+      - $battleDetails[@thread_id]['Attacking units and odds'].each do |s|
         %li=s
     %h2='Defending units and odds'
     %ul
-      - $battle_details['Defending units and odds'].each do |s|
+      - $battleDetails[@thread_id]['Defending units and odds'].each do |s|
         %li=s
     %h2="Log"
-    %p=$output.gsub(/\n/,'<br />')
+    %p=$output[@thread_id].gsub(/\n/,'<br />')
     %p
       %a{:href=>"http://validator.w3.org/check?uri=referer"}
         %img{:src => "http://www.w3.org/Icons/valid-xhtml10-blue",:alt=>"Valid XHTML 1.0 Strict",:height=>"31",:width=>"88"}
+
 @@ calculating
 !!! Strict
 %html{:xmlns => "http://www.w3.org/1999/xhtml", "xml:lang" => "en", :lang => "en"}
@@ -843,5 +864,5 @@ __END__
     %meta{"http-equiv" => "refresh", :content=> "1"}
     %title Calculating
   %body
-    %h1='Calculating'
-    %p=$output.gsub(/\n/,'<br />')
+    %h1 Calculating
+    %p=$output[@thread_id].gsub(/\n/,'<br />')

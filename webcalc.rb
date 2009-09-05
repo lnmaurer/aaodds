@@ -13,16 +13,12 @@ rescue Exception
   $use_gsl = false
 end
 
-# alias oldprint print
-#print now prints to the console in the gui
-#TODO: give this all the functionality of the old print
-# def print(s)
-#   if __FILE__ == $0
-#     $gui.print_to_console(s)
-#   else
-#     oldprint(s)
-#   end
-# end
+$output =''
+alias oldprint print
+def print(s)
+  $output = $output + s
+  oldprint s
+end
 
 #neither gsl nor the built in matrix class includes two useful functions
 if $use_gsl
@@ -390,7 +386,7 @@ class Battle
           pd = 0
         end
 
-        #since a can get heavy bombers, we need to us ahits[] and not rely on size        
+        #since a can get heavy bombers, we need to use ahits[] and not rely on size        
         if (cd == 0) and (ahits[ra] >= rd)
           pa = aprobs[ra][rd..-1].inject{|s,v| s + v}
         elsif ((rd - cd) >= 0) and ((rd - cd) <= ahits[ra])
@@ -440,7 +436,7 @@ class Battle
         if hits < bprobs.size
           if nd != 0
             bprobs[hits].to_f
-          else #in case there are more bomarders than defendign units
+          else #in case there are more bomarders than defending units
             bprobs[hits..-1].inject(0){|s,v|s+v}.to_f
           end
         else
@@ -523,167 +519,169 @@ end
 
 post '/result' do
 
-  #Techs
-  aaGun = (params[:AAGun] != nil)
-  heavyBombers = (params[:HeavyBombers] != nil)
-  combinedBombardment = (params[:CombinedBombardment] != nil)
-  jets = (params[:Jets] != nil)
-  superSubs = (params[:SuperSubs] != nil)
-  
-#DEFENDERS  
-  
-#   if @dlist.curselection.size != 0
-#     @dlist.selection_clear(@dlist.curselection[0])
-#   end
-#   self.disable_buttons(@dup,@ddown)
-  dunits = Array.new
-  params[:dInfantry].to_i.times {dunits.push(Infantry.new(false))}
-  params[:dTank].to_i.times {dunits.push(Tank.new(false))}
-  params[:dArtillery].to_i.times {dunits.push(Artillery.new(false))}
-  params[:dFighter].to_i.times {dunits.push(Fighter.new(false,jets))}
-  params[:dBomber].to_i.times {dunits.push(Bomber.new(false,heavyBombers))}
-  params[:dDestroyer].to_i.times {dunits.push(Destroyer.new(false))}
-  params[:dBattleship].to_i.times {dunits.push(Battleship.new(false))}
-  params[:dBattleship].to_i.times {dunits.push(Bship1stHit.new(false))}
-  params[:dCarrier].to_i.times {dunits.push(Carrier.new(false))}
-  params[:dTransport].to_i.times {dunits.push(Transport.new(false))}
-  params[:dSub].to_i.times {dunits.push(Sub.new(false,superSubs))}
-
-#   if @dsort.to_s == 'value'
-#     dunits.sort!{|a,b| (a.value <=> b.value) == 0 ? a.power <=> b.power : a.value <=> b.value}
-#   else
-#     @dsort.value = 'power' #in case it's set to 'other'
-    dunits.sort!{|a,b| (a.power <=> b.power) == 0 ? a.value <=> b.value : a.power <=> b.power}
-#   end
-# 
-#   @dhas_land = dunits.any?{|unit| unit.type == 'land'}
-#   @dhas_sea = dunits.any?{|unit| unit.type == 'sea'}
-#   if @dhas_land or @ahas_land
-#     self.disable_sea
-#   else
-#     self.enable_sea
-#   end
-#   if @dhas_sea or @ahas_sea
-#     self.disable_land
-#   else
-#     self.enable_land
-#   end
-# 
-#   self.update_lists
-  
+  $calcThread = Thread.new{
+    #Techs
+    aaGun = (params[:AAGun] != nil)
+    heavyBombers = (params[:HeavyBombers] != nil)
+    combinedBombardment = (params[:CombinedBombardment] != nil)
+    jets = (params[:Jets] != nil)
+    superSubs = (params[:SuperSubs] != nil)
     
-#ATTACKERS    
+  #DEFENDERS  
     
-#   if @alist.curselection.size != 0
-#     @alist.selection_clear(@alist.curselection[0])
-#   end
-#   self.disable_buttons(@aup,@adown)
-  aunits = Array.new
-  params[:aInfantry].to_i.times {aunits.push(Infantry.new(true))}
-  params[:aTank].to_i.times {aunits.push(Tank.new(true))}
-  params[:aArtillery].to_i.times {aunits.push(Artillery.new(true))}
+  #   if @dlist.curselection.size != 0
+  #     @dlist.selection_clear(@dlist.curselection[0])
+  #   end
+  #   self.disable_buttons(@dup,@ddown)
+    dunits = Array.new
+    params[:dInfantry].to_i.times {dunits.push(Infantry.new(false))}
+    params[:dTank].to_i.times {dunits.push(Tank.new(false))}
+    params[:dArtillery].to_i.times {dunits.push(Artillery.new(false))}
+    params[:dFighter].to_i.times {dunits.push(Fighter.new(false,jets))}
+    params[:dBomber].to_i.times {dunits.push(Bomber.new(false,heavyBombers))}
+    params[:dDestroyer].to_i.times {dunits.push(Destroyer.new(false))}
+    params[:dBattleship].to_i.times {dunits.push(Battleship.new(false))}
+    params[:dBattleship].to_i.times {dunits.push(Bship1stHit.new(false))}
+    params[:dCarrier].to_i.times {dunits.push(Carrier.new(false))}
+    params[:dTransport].to_i.times {dunits.push(Transport.new(false))}
+    params[:dSub].to_i.times {dunits.push(Sub.new(false,superSubs))}
 
-#   @ahas_land = aunits.any?{|unit| unit.type == 'land'}
-#   if @ahas_land or @dhas_land
-#     self.disable_sea
-#   else
-#     self.enable_sea
-#   end
-
-  params[:aFighter].to_i.times {aunits.push(Fighter.new(true,jets))}
-  params[:aBomber].to_i.times {aunits.push(Bomber.new(true,heavyBombers))}
-  params[:aDestroyer].to_i.times {aunits.push(Destroyer.new(true))}
-  params[:aBattleship].to_i.times {aunits.push(Battleship.new(true))}
-  params[:aBattleship].to_i.times {aunits.push(Bship1stHit.new(true))}
-  params[:aCarrier].to_i.times {aunits.push(Carrier.new(true))}
-  params[:aTransport].to_i.times {aunits.push(Transport.new(true))}
-  params[:aSub].to_i.times {aunits.push(Sub.new(true,superSubs))}
-
-  #      aunits = aunits.reject{|unit| unit.is_a?(Bship1stHit)} if ahas_land #if there are land units, take out the first hit
-#   @ahas_sea = aunits.any?{|unit| (unit.type == 'sea') and (not(unit.is_a?(Battleship) or unit.is_a?(Bship1stHit) or (unit.is_a?(Destroyer) and (@combinedBombardment.get_value == '1'))))}
-#   if @ahas_sea or @dhas_sea
-#     self.disable_land
-#   else
-#     self.enable_land
-#   end
-# 
-#   if @asort.to_s == 'value'
-#     aunits.sort!{|a,b| (a.value <=> b.value) == 0 ? a.power <=> b.power : a.value <=> b.value}
-#   else
-#     @asort.value ='power' #in case it's set to 'other'
-    aunits.sort!{|a,b| (a.power <=> b.power) == 0 ? a.value <=> b.value : a.power <=> b.power}
-#   end
-# 
-#   self.update_lists  
-  
-#CALCULATE
+  #   if @dsort.to_s == 'value'
+  #     dunits.sort!{|a,b| (a.value <=> b.value) == 0 ? a.power <=> b.power : a.value <=> b.value}
+  #   else
+  #     @dsort.value = 'power' #in case it's set to 'other'
+      dunits.sort!{|a,b| (a.power <=> b.power) == 0 ? a.value <=> b.value : a.power <=> b.power}
+  #   end
+  # 
+  #   @dhas_land = dunits.any?{|unit| unit.type == 'land'}
+  #   @dhas_sea = dunits.any?{|unit| unit.type == 'sea'}
+  #   if @dhas_land or @ahas_land
+  #     self.disable_sea
+  #   else
+  #     self.enable_sea
+  #   end
+  #   if @dhas_sea or @ahas_sea
+  #     self.disable_land
+  #   else
+  #     self.enable_land
+  #   end
+  # 
+  #   self.update_lists
     
-  start = Time.now.to_f 
-#  self.reset_console
+      
+  #ATTACKERS    
+      
+  #   if @alist.curselection.size != 0
+  #     @alist.selection_clear(@alist.curselection[0])
+  #   end
+  #   self.disable_buttons(@aup,@adown)
+    aunits = Array.new
+    params[:aInfantry].to_i.times {aunits.push(Infantry.new(true))}
+    params[:aTank].to_i.times {aunits.push(Tank.new(true))}
+    params[:aArtillery].to_i.times {aunits.push(Artillery.new(true))}
 
-  has_land = (aunits + dunits).any?{|u| u.type == 'land'}
-  has_sea = (aunits + dunits).any?{|u| u.type == 'sea'}
+  #   @ahas_land = aunits.any?{|unit| unit.type == 'land'}
+  #   if @ahas_land or @dhas_land
+  #     self.disable_sea
+  #   else
+  #     self.enable_sea
+  #   end
 
-  bombarders = nil
-  if has_land and has_sea #then there's a bombardment coming
-    bombarders = Army.new(aunits.select{|u| u.type == 'sea'})
-    oldaunits = aunits #don't want to permantly remove ships -- just need to seperate them for computations
-    aunits = aunits.reject{|u| u.type == 'sea'}
-  end
+    params[:aFighter].to_i.times {aunits.push(Fighter.new(true,jets))}
+    params[:aBomber].to_i.times {aunits.push(Bomber.new(true,heavyBombers))}
+    params[:aDestroyer].to_i.times {aunits.push(Destroyer.new(true))}
+    params[:aBattleship].to_i.times {aunits.push(Battleship.new(true))}
+    params[:aBattleship].to_i.times {aunits.push(Bship1stHit.new(true))}
+    params[:aCarrier].to_i.times {aunits.push(Carrier.new(true))}
+    params[:aTransport].to_i.times {aunits.push(Transport.new(true))}
+    params[:aSub].to_i.times {aunits.push(Sub.new(true,superSubs))}
 
-  a = Army.new(aunits.reverse)
-  d = Army.new(dunits.reverse)
+    #      aunits = aunits.reject{|unit| unit.is_a?(Bship1stHit)} if ahas_land #if there are land units, take out the first hit
+  #   @ahas_sea = aunits.any?{|unit| (unit.type == 'sea') and (not(unit.is_a?(Battleship) or unit.is_a?(Bship1stHit) or (unit.is_a?(Destroyer) and (@combinedBombardment.get_value == '1'))))}
+  #   if @ahas_sea or @dhas_sea
+  #     self.disable_land
+  #   else
+  #     self.enable_land
+  #   end
+  # 
+  #   if @asort.to_s == 'value'
+  #     aunits.sort!{|a,b| (a.value <=> b.value) == 0 ? a.power <=> b.power : a.value <=> b.value}
+  #   else
+  #     @asort.value ='power' #in case it's set to 'other'
+      aunits.sort!{|a,b| (a.power <=> b.power) == 0 ? a.value <=> b.value : a.power <=> b.power}
+  #   end
+  # 
+  #   self.update_lists  
+    
+  #CALCULATE
+      
+    start = Time.now.to_f 
+  #  self.reset_console
 
-  battles = Array.new
-  a2 = a.dup
-  numaircraft = aaGun ? a.num_aircraft : 0
-  aircraftindexes = Array.new
-  a2.arr.each_with_index{|u,i| aircraftindexes << i if u.type == 'air'}
-  for hits in 0..numaircraft #exceutes even if numaircraft == 0
-    battles << Battle.new(a2,d,bombarders, binom(numaircraft,hits,1.0/6.0))
-    a2 = a2.lose_one_aircraft
-  end
+    has_land = (aunits + dunits).any?{|u| u.type == 'land'}
+    has_sea = (aunits + dunits).any?{|u| u.type == 'sea'}
 
-  pawins = battles.inject(0){|s,b|s + b.awins}
-  pdwins = battles.inject(0){|s,b|s + b.dwins}
-  pnwins = battles.inject(0){|s,b|s + b.nwins}
-  pswins = pawins + pdwins + pnwins
-  #d doesn't lose any units from aaguns, so we can just add everything together
-  dcumprobs = battles.collect{|b|b.dcumprobs}.inject{|s,a| s.zip(a).collect{|b,c|b+c}}
-  #the same is not true for a, so this takes more work
-  acumprobs = Array.new
-  battles.each_with_index{|b,i|
-    probs = b.acumprobs.reverse
-    for j in 0..(i-1)
-      probs.insert(aircraftindexes[j],0)
+    bombarders = nil
+    if has_land and has_sea #then there's a bombardment coming
+      bombarders = Army.new(aunits.select{|u| u.type == 'sea'})
+      oldaunits = aunits #don't want to permantly remove ships -- just need to seperate them for computations
+      aunits = aunits.reject{|u| u.type == 'sea'}
     end
-    acumprobs << probs.reverse
+
+    a = Army.new(aunits.reverse)
+    d = Army.new(dunits.reverse)
+
+    battles = Array.new
+    a2 = a.dup
+    numaircraft = aaGun ? a.num_aircraft : 0
+    aircraftindexes = Array.new
+    a2.arr.each_with_index{|u,i| aircraftindexes << i if u.type == 'air'}
+    for hits in 0..numaircraft #exceutes even if numaircraft == 0
+      battles << Battle.new(a2,d,bombarders, binom(numaircraft,hits,1.0/6.0))
+      a2 = a2.lose_one_aircraft
+    end
+
+    pawins = battles.inject(0){|s,b|s + b.awins}
+    pdwins = battles.inject(0){|s,b|s + b.dwins}
+    pnwins = battles.inject(0){|s,b|s + b.nwins}
+    pswins = pawins + pdwins + pnwins
+    #d doesn't lose any units from aaguns, so we can just add everything together
+    dcumprobs = battles.collect{|b|b.dcumprobs}.inject{|s,a| s.zip(a).collect{|b,c|b+c}}
+    #the same is not true for a, so this takes more work
+    acumprobs = Array.new
+    battles.each_with_index{|b,i|
+      probs = b.acumprobs.reverse
+      for j in 0..(i-1)
+	probs.insert(aircraftindexes[j],0)
+      end
+      acumprobs << probs.reverse
+    }
+    acumprobs = acumprobs.inject{|s,a| s.zip(a).collect{|b,c|b+c}}
+
+  #  attackerProb.value = pawins.to_s
+  #  defenderProb.value = pdwins.to_s
+  #  annihilationProb.value = pnwins.to_s
+  #  sumProb.value = pswins.to_s
+  #  aunits = oldaunits if has_land and has_sea
+  #  anames.value = anames.list.collect{|s|s.split[0]}.zip(acumprobs.reverse).collect{|a| sprintf("%-11s %.6f",a[0],a[1] ? a[1] : 1)}
+  #  dnames.value = dnames.list.collect{|s|s.split[0]}.zip(dcumprobs.reverse).collect{|a| sprintf("%-11s %.6f",a[0],a[1] ? a[1] : 1)}
+
+    print "Operation completed in #{Time.now.to_f - start} seconds\n"
+
+  #DISPLAY RESULTS  
+    
+    $battle_details = Hash.new
+    $battle_details['Summary of odds'] = {'Attacker wins'=>pawins,
+      'Defender wins'=>pdwins,'Mutual annihilation'=>pnwins,'Sum'=>pawins+pdwins+pnwins}
+    $battle_details['Technologies'] = {'AAguns'=> aaGun,
+      'Heavy Bombers'=> heavyBombers, 'Combined Bombardment'=>
+      combinedBombardment,'Jets' => jets,
+      'Super Subs' => superSubs}
+    $battle_details['Bomardment'] = (bombarders != nil)
+    $battle_details['Bombarders'] = bombarders.arr.collect{|u| u.class.to_s + ' '} if bombarders != nil
+    $battle_details['Attacking units and odds'] = a.arr.collect{|u| u.class.to_s + ' '}.zip(acumprobs)
+    $battle_details['Defending units and odds'] = d.arr.collect{|u| u.class.to_s + ' '}.zip(dcumprobs)
   }
-  acumprobs = acumprobs.inject{|s,a| s.zip(a).collect{|b,c|b+c}}
-
-#  attackerProb.value = pawins.to_s
-#  defenderProb.value = pdwins.to_s
-#  annihilationProb.value = pnwins.to_s
-#  sumProb.value = pswins.to_s
-#  aunits = oldaunits if has_land and has_sea
-#  anames.value = anames.list.collect{|s|s.split[0]}.zip(acumprobs.reverse).collect{|a| sprintf("%-11s %.6f",a[0],a[1] ? a[1] : 1)}
-#  dnames.value = dnames.list.collect{|s|s.split[0]}.zip(dcumprobs.reverse).collect{|a| sprintf("%-11s %.6f",a[0],a[1] ? a[1] : 1)}
-
-  print "Operation completed in #{Time.now.to_f - start} seconds\n"
-
-#DISPLAY RESULTS  
-  
-  $battle_details = Hash.new
-  $battle_details['Summary of odds'] = {'Attacker wins'=>pawins,
-    'Defender wins'=>pdwins,'Mutual annihilation'=>pnwins}
-  $battle_details['Technologies'] = {'AAguns'=> aaGun,
-    'Heavy Bombers'=> heavyBombers, 'Combined Bombardment'=>
-    combinedBombardment,'Jets' => jets,
-    'Super Subs' => superSubs}
-  $battle_details['Bomardment'] = (bombarders != nil)
-  $battle_details['Bombarders'] = bombarders.arr.collect{|u| u.class.to_s + ' '} if bombarders != nil
-  $battle_details['Attacking units and odds'] = a.arr.collect{|u| u.class.to_s + ' '}.zip(acumprobs)
-  $battle_details['Defending units and odds'] = d.arr.collect{|u| u.class.to_s + ' '}.zip(dcumprobs)
 #  filename = Tk.getSaveFile("filetypes"=>[["Text", ".txt"]])
 #  File.open(filename, "w"){|file| file.print(battle_details.to_yaml)} unless filename == ""  
   
@@ -692,9 +690,17 @@ post '/result' do
 #  battle_details.to_yaml
 #  $res = battle_details.to_yaml.sub(/($|\n|\r)/,'<br />')
 #  puts $res
-  haml :results
+  redirect "/results"
 end
 
+
+get '/results' do
+  if $calcThread.status
+    haml :calculating
+  else
+    haml :results
+  end
+end
   
 __END__
 
@@ -723,7 +729,7 @@ __END__
               Jets
               %input{:type =>'checkbox', :name=>'Jets'}
               Super Subs
-              %input{:type =>'checkbox', :names=>'SuperSubs'}
+              %input{:type =>'checkbox', :name=>'SuperSubs'}
         %tr
           %td
             %h2='Attackers'
@@ -786,6 +792,9 @@ __END__
         %tr
           %td{:colspan=>"2"}
             %input{:type => :submit, :value => "Calculate"}
+    %p
+      %a{:href=>"http://validator.w3.org/check?uri=referer"}
+        %img{:src => "http://www.w3.org/Icons/valid-xhtml10-blue",:alt=>"Valid XHTML 1.0 Strict",:height=>"31",:width=>"88"}  
 
 @@ results
 !!! Strict
@@ -802,6 +811,8 @@ __END__
       Defender wins: #{$battle_details['Summary of odds']['Defender wins']}
       %br
       Mutual annihilation: #{$battle_details['Summary of odds']['Mutual annihilation']}
+      %br
+      Sum: #{$battle_details['Summary of odds']['Sum']}
     %h2='Tech'
     %ul
       - $battle_details['Technologies'].each_pair do |key,value|
@@ -819,3 +830,18 @@ __END__
     %ul
       - $battle_details['Defending units and odds'].each do |s|
         %li=s
+    %h2="Log"
+    %p=$output.gsub(/\n/,'<br />')
+    %p
+      %a{:href=>"http://validator.w3.org/check?uri=referer"}
+        %img{:src => "http://www.w3.org/Icons/valid-xhtml10-blue",:alt=>"Valid XHTML 1.0 Strict",:height=>"31",:width=>"88"}
+@@ calculating
+!!! Strict
+%html{:xmlns => "http://www.w3.org/1999/xhtml", "xml:lang" => "en", :lang => "en"}
+  %head
+    %meta{"http-equiv" => "Content-type", :content =>" text/html;charset=UTF-8"}
+    %meta{"http-equiv" => "refresh", :content=> "1"}
+    %title Calculating
+  %body
+    %h1='Calculating'
+    %p=$output.gsub(/\n/,'<br />')

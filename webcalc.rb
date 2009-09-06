@@ -714,14 +714,32 @@ get '/battlenotfound' do
 %html{:xmlns => "http://www.w3.org/1999/xhtml", "xml:lang" => "en", :lang => "en"}
   %head
     %meta{"http-equiv" => "Content-type", :content =>" text/html;charset=UTF-8"}
-    %title Calculating
+    %title Battle Not Found
   %body
     %h1 The battle you are looking for cannot be found
     %p
       Are you sure you entered the correct URL? If you are looking for an old battle, note that they may be deleted periodically.
+    %p
+      %a{:href=>"../"}
+        Main Page
 nobattle
 end
-  
+
+get '/whatitmean' do
+  haml <<'whatitmean'
+%html{:xmlns => "http://www.w3.org/1999/xhtml", "xml:lang" => "en", :lang => "en"}
+  %head
+    %meta{"http-equiv" => "Content-type", :content =>" text/html;charset=UTF-8"}
+    %title What it means
+  %body
+    %h1 What does it all mean?
+    %p Probabilities are shown as numbers between 0 and 1.
+    %p The "Summary of odds" shows the probabilities of the overall outcomes. In this setting, the attacker or defender wins if they have at least one unit survive the battle. Mutual annihilation means that no units survive the battle (this is technically a win for the defender). The sum of these three should be exactly 1.0. However, rounding errors may produce resulsts like "1.00000000000003". This is normal result of using floating point numbers (which cannot exactly express numbers like one third). If you get a result that differes from 1.0 by a more significant extent, feel free to send the information about the battle to me so that I can look in to it.
+    %p For the units and odds sections, the number to the right of a unit is the probability that that unit, and the ones above it, survive the battle.
+    %p Use your broswer's back button to return to the battle results.
+whatitmean
+end
+
 __END__
 
 @@ index
@@ -731,9 +749,28 @@ __END__
     %meta{"http-equiv" => "Content-type", :content =>" text/html;charset=UTF-8"}
     %title aacalc
   %body
+    %div{:style=>"float:left;margin:4px;"}
+      %img{:src => "aacalc192.png",:height=>"192",:width=>"192",:alt=>"Logo"}
     %h1='aacalc'
     %p
-      Instructions: enter information, click 'Calculate', and wait.
+      Instructions: enter information, click 'Calculate', and wait. If you enter a nonsensical battle, you may get a nonsensical result.
+    %p
+      This web application calculates the exact odds for battles in the revised edition of the board game Axis and Allies -- it does not estimate the results using randomness. All rules are implemented except special submarine rules (first strike, cannot attack aircraft). If you include both land and sea units in an attack, then the sea units will bombard. The order units are lost in can effect the odds in the battle. As it stand right now, the loss order is determined by attack or defense power (whichever is appropriate).
+    %p
+      This program is a work in progress. A more advanced offline version exists. It allows you set any loss order you wish, and the program will likely run faster (since this application is being hosted by a slow computer). Here are some links for more information:
+    %ul
+      %li
+        The
+        %a{:href=>"https://launchpad.net/aacalc"}home page
+        for development of this program. The source code is available under the GPL.
+      %li
+        My general
+        %a{:href=>"https://mywebspace.wisc.edu/lnmaurer/web/"}home page.
+        It has my contact information.
+      %li
+        A program with the
+        %a{:href=>"http://frood.net/aacalc/2.0/"}same name
+        but that is not related to this project. It estimates battle outcomes using randomness.
     %form{:method => 'post', :action => "/result"}
       %table
         %tr
@@ -814,7 +851,7 @@ __END__
             %input{:type => :submit, :value => "Calculate"}
     %p
       %a{:href=>"http://validator.w3.org/check?uri=referer"}
-        %img{:src => "http://www.w3.org/Icons/valid-xhtml10-blue",:alt=>"Valid XHTML 1.0 Strict",:height=>"31",:width=>"88"}  
+        %img{:src => "http://www.w3.org/Icons/valid-xhtml10-blue",:alt=>"Valid XHTML 1.0 Strict",:height=>"31",:width=>"88",:style=>"border-style:none"}  
 
 @@ results
 !!! Strict
@@ -824,6 +861,8 @@ __END__
     %title Battle Results
   %body
     %h1='Results'
+    %p
+      %a{:href=>"/whatitmean"} What does all this mean?
     %h2='Summary of odds'
     %p
       Attacker wins: #{$battleDetails[@thread_id]['Summary of odds']['Attacker wins']}
@@ -854,7 +893,7 @@ __END__
     %p=$output[@thread_id].gsub(/\n/,'<br />')
     %p
       %a{:href=>"http://validator.w3.org/check?uri=referer"}
-        %img{:src => "http://www.w3.org/Icons/valid-xhtml10-blue",:alt=>"Valid XHTML 1.0 Strict",:height=>"31",:width=>"88"}
+        %img{:src => "http://www.w3.org/Icons/valid-xhtml10-blue",:alt=>"Valid XHTML 1.0 Strict",:height=>"31",:width=>"88",:style=>"border-style:none"}
 
 @@ calculating
 !!! Strict

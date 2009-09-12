@@ -72,7 +72,7 @@ def factorial(num)
   if num <= 0
     1
   else
-    (1..num).to_a.inject(1){|product,n| product * n}
+    (1..num).inject(1){|product,n| product * n}
   end
 end
 

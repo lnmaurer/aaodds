@@ -13,9 +13,13 @@ rescue Exception
   $use_gsl = false
 end
 
-$battleDetails = Hash.new
-$calcThreads = Hash.new
-$output = Hash.new('')
+#the key to the following three hashes will be the object_id of the thread
+#used for a particular battle
+$battleDetails = Hash.new #will store the results of each battle
+$calcThreads = Hash.new #stores the threades used to calculate each battle
+$output = Hash.new('') #will hold the output made during calculation -- starts off with an empty string
+
+#the new print function just stores the output in a string for the appropriate battle
 alias oldprint print
 def print(s)
   $output[Thread.current.object_id] += s
@@ -52,7 +56,7 @@ def factorial(num)
   if num <= 0
     1
   else
-    (1..num).to_a.inject(1){|product,n| product * n}
+    (1..num).inject(1){|product,n| product * n}
   end
 end
 
@@ -683,9 +687,29 @@ post '/result' do
     battle_details['Bombarders'] = bombarders.arr.collect{|u| u.class.to_s + ' '} if bombarders != nil
     battle_details['Attacking units and odds'] = a.arr.collect{|u| u.class.to_s + ' '}.zip(acumprobs)
     battle_details['Defending units and odds'] = d.arr.collect{|u| u.class.to_s + ' '}.zip(dcumprobs)
+    battle_details['Time Complete'] = Time.now
     $battleDetails[calcThread.object_id] = battle_details
   }
   $calcThreads[calcThread.object_id] = calcThread
+  
+  
+  unless defined?($cleanUp)
+    $cleanUp = Thread.new{
+      while true
+        if $battleDetails.size > 500 #keep 500 old battles in memory
+          #sort by age and select the oldest
+          delete_id = $battleDetails.sort{|a,b| a[1]['Time Complete'] <=> b[1]['Time Complete']}[0][0]
+          #delete all references to the old battle
+          $calcThreads.delete(delete_id)
+          $battleDetails.delete(delete_id)
+          $output.delete(delete_id)
+        else
+          #if there weren't too many battles, take a break before looking again.
+          Kernel.sleep(60)
+        end
+      end
+      }
+  end
 #  filename = Tk.getSaveFile("filetypes"=>[["Text", ".txt"]])
 #  File.open(filename, "w"){|file| file.print(battle_details.to_yaml)} unless filename == ""  
   
@@ -734,9 +758,10 @@ get '/whatitmean' do
   %body
     %h1 What does it all mean?
     %p Probabilities are shown as numbers between 0 and 1.
-    %p The "Summary of odds" shows the probabilities of the overall outcomes. In this setting, the attacker or defender wins if they have at least one unit survive the battle. Mutual annihilation means that no units survive the battle (this is technically a win for the defender). The sum of these three should be exactly 1.0. However, rounding errors may produce resulsts like "1.00000000000003". This is normal result of using floating point numbers (which cannot exactly express numbers like one third). If you get a result that differes from 1.0 by a more significant extent, feel free to send the information about the battle to me so that I can look in to it.
+    %p The "Summary of odds" shows the probabilities of the overall outcomes. In this setting, the attacker or defender wins if they have at least one unit survive the battle. Mutual annihilation means that no units survive the battle (this is technically a win for the defender). The sum of these three should be exactly 1.0. However, rounding errors may produce results like "1.00000000000003". This is normal result of using floating point numbers (which cannot exactly express numbers like one third). If you get a result that differs from 1.0 by a more significant extent, feel free to send the information about the battle to me so that I can look in to it.
     %p For the units and odds sections, the number to the right of a unit is the probability that that unit, and the ones above it, survive the battle.
-    %p Use your broswer's back button to return to the battle results.
+    %p Note that the results of a battle will be available (from the previous page) for a while, but may eventually be deleted.
+    %p Use your browser's back button to return to the battle results.
 whatitmean
 end
 
@@ -768,9 +793,9 @@ __END__
         %a{:href=>"https://mywebspace.wisc.edu/lnmaurer/web/"}home page.
         It has my contact information.
       %li
-        A program with the
-        %a{:href=>"http://frood.net/aacalc/2.0/"}same name
-        but that is not related to this project. It estimates battle outcomes using randomness.
+        There is another similar program with the
+        %a{:href=>"http://frood.net/aacalc/2.0/"}same name.
+        It estimates battle outcomes using randomness. I have no relation to that project -- the name collision was unintentional.
     %form{:method => 'post', :action => "/result"}
       %table
         %tr

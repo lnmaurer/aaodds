@@ -524,101 +524,102 @@ get '/' do
 end
 
 post '/result' do
+  
+  aunits = Array.new
+  dunits = Array.new
+  attackers = Array.new
+  defenders = Array.new
+  
+  params[:attackers].split.each_with_index{|s,i|
+    if (i % 2 ) == 0 #should be a number
+      attackers << Array.new
+      redirect "/inputerror/nan/#{params[:attackers].gsub(/\s+/,'_')}/#{s}" unless /\A\d+\z/ === s
+      attackers[i/2] << s.to_i
+    else #should be a unit
+      redirect "/inputerror/ian/#{params[:attackers].gsub(/\s+/,'_')}/#{s}" if /\A\d+\z/ === s
+      attackers[i/2] << s
+    end
+  }
+  redirect "/inputerror/wn/#{params[:attackers].gsub(/\s+/,'_')}/nil" if attackers[-1].size == 1
 
+  params[:defenders].split.each_with_index{|s,i|
+    if (i % 2 ) == 0 #should be a number
+      defenders << Array.new
+      redirect "/inputerror/nan/#{params[:defenders].gsub(/\s+/,'_')}/#{s}" unless /\A\d+\z/ === s
+      defenders[i/2] << s.to_i
+    else #should be a unit
+      redirect "/inputerror/ian/#{params[:defenders].gsub(/\s+/,'_')}/#{s}" if /\A\d+\z/ === s
+      defenders[i/2] << s
+    end
+  }
+  redirect "/inputerror/wn/#{params[:defenders].gsub(/\s+/,'_')}/nil" if defenders[-1].size == 1  
+  
+  aaGun = (params[:AAGun] != nil)
+  heavyBombers = (params[:HeavyBombers] != nil)
+  combinedBombardment = (params[:CombinedBombardment] != nil)
+  jets = (params[:Jets] != nil)
+  superSubs = (params[:SuperSubs] != nil)
+  
+  attackers.each{|num,unit|
+    case unit
+    when /\A(i)/i
+      num.times {aunits.push(Infantry.new(true))}
+    when /\A(ar)/i
+      num.times {aunits.push(Artillery.new(true))}
+    when /\A(ta)/i
+      num.times {aunits.push(Tank.new(true))}
+    when /\A(f)/i
+      num.times {aunits.push(Fighter.new(true,jets))}
+    when /\A(bo)/i
+      num.times {aunits.push(Bomber.new(true,heavyBombers))}
+    when /\A(d)/i
+      num.times {aunits.push(Destroyer.new(true))}
+    when /\A(ba)/i, /\A(bs)/i
+      num.times {aunits.push(Battleship.new(true))}
+      num.times {aunits.push(Bship1stHit.new(true))}
+    when /\A(ai)/i, /\A(ac)/i, /\A(c)/i
+      num.times {aunits.push(Carrier.new(true))}
+    when /\A(tr)/i
+      num.times {aunits.push(Transport.new(true))}
+    when /\A(s)/i
+      num.times {aunits.push(Sub.new(true,superSubs))}
+    else
+      redirect "/inputerror/unit/#{params[:attackers].gsub(/\s+/,'_')}/#{unit}"
+    end              
+  }
+  aunits = aunits.sort_by{|u| u.is_a?(Bship1stHit) ? 0 : 1}
+puts aunits.size
+  defenders.each{|num,unit|
+    case unit
+    when /\A(i)/i
+      num.times {dunits.push(Infantry.new(false))}
+    when /\A(ar)/i
+      num.times {dunits.push(Artillery.new(false))}
+    when /\A(ta)/i
+      num.times {dunits.push(Tank.new(false))}
+    when /\A(f)/i
+      num.times {dunits.push(Fighter.new(false,jets))}
+    when /\A(bo)/i
+      num.times {dunits.push(Bomber.new(false,heavyBombers))}
+    when /\A(d)/i
+      num.times {dunits.push(Destroyer.new(false))}
+    when /\A(ba)/i, /\A(bs)/i
+      num.times {dunits.push(Battleship.new(false))}
+      num.times {dunits.push(Bship1stHit.new(false))}
+    when /\A(ai)/i, /\A(ac)/i, /\A(c)/i
+      num.times {dunits.push(Carrier.new(false))}
+    when /\A(tr)/i
+      num.times {dunits.push(Transport.new(false))}
+    when /\A(s)/i
+      num.times {dunits.push(Sub.new(false,superSubs))}
+    else
+      redirect "/inputerror/unit/#{params[:defenders].gsub(/\s+/,'_')}/#{unit}"        
+    end              
+  }              
+  
+  dunits = dunits.sort_by{|u| u.is_a?(Bship1stHit) ? 0 : 1}
+                
   calcThread = Thread.new{
-    #Techs
-    aaGun = (params[:AAGun] != nil)
-    heavyBombers = (params[:HeavyBombers] != nil)
-    combinedBombardment = (params[:CombinedBombardment] != nil)
-    jets = (params[:Jets] != nil)
-    superSubs = (params[:SuperSubs] != nil)
-    
-  #DEFENDERS  
-    
-  #   if @dlist.curselection.size != 0
-  #     @dlist.selection_clear(@dlist.curselection[0])
-  #   end
-  #   self.disable_buttons(@dup,@ddown)
-    dunits = Array.new
-    params[:dInfantry].to_i.times {dunits.push(Infantry.new(false))}
-    params[:dTank].to_i.times {dunits.push(Tank.new(false))}
-    params[:dArtillery].to_i.times {dunits.push(Artillery.new(false))}
-    params[:dFighter].to_i.times {dunits.push(Fighter.new(false,jets))}
-    params[:dBomber].to_i.times {dunits.push(Bomber.new(false,heavyBombers))}
-    params[:dDestroyer].to_i.times {dunits.push(Destroyer.new(false))}
-    params[:dBattleship].to_i.times {dunits.push(Battleship.new(false))}
-    params[:dBattleship].to_i.times {dunits.push(Bship1stHit.new(false))}
-    params[:dCarrier].to_i.times {dunits.push(Carrier.new(false))}
-    params[:dTransport].to_i.times {dunits.push(Transport.new(false))}
-    params[:dSub].to_i.times {dunits.push(Sub.new(false,superSubs))}
-
-  #   if @dsort.to_s == 'value'
-  #     dunits.sort!{|a,b| (a.value <=> b.value) == 0 ? a.power <=> b.power : a.value <=> b.value}
-  #   else
-  #     @dsort.value = 'power' #in case it's set to 'other'
-      dunits.sort!{|a,b| (a.power <=> b.power) == 0 ? a.value <=> b.value : a.power <=> b.power}
-  #   end
-  # 
-  #   @dhas_land = dunits.any?{|unit| unit.type == 'land'}
-  #   @dhas_sea = dunits.any?{|unit| unit.type == 'sea'}
-  #   if @dhas_land or @ahas_land
-  #     self.disable_sea
-  #   else
-  #     self.enable_sea
-  #   end
-  #   if @dhas_sea or @ahas_sea
-  #     self.disable_land
-  #   else
-  #     self.enable_land
-  #   end
-  # 
-  #   self.update_lists
-    
-      
-  #ATTACKERS    
-      
-  #   if @alist.curselection.size != 0
-  #     @alist.selection_clear(@alist.curselection[0])
-  #   end
-  #   self.disable_buttons(@aup,@adown)
-    aunits = Array.new
-    params[:aInfantry].to_i.times {aunits.push(Infantry.new(true))}
-    params[:aTank].to_i.times {aunits.push(Tank.new(true))}
-    params[:aArtillery].to_i.times {aunits.push(Artillery.new(true))}
-
-  #   @ahas_land = aunits.any?{|unit| unit.type == 'land'}
-  #   if @ahas_land or @dhas_land
-  #     self.disable_sea
-  #   else
-  #     self.enable_sea
-  #   end
-
-    params[:aFighter].to_i.times {aunits.push(Fighter.new(true,jets))}
-    params[:aBomber].to_i.times {aunits.push(Bomber.new(true,heavyBombers))}
-    params[:aDestroyer].to_i.times {aunits.push(Destroyer.new(true))}
-    params[:aBattleship].to_i.times {aunits.push(Battleship.new(true))}
-    params[:aBattleship].to_i.times {aunits.push(Bship1stHit.new(true))}
-    params[:aCarrier].to_i.times {aunits.push(Carrier.new(true))}
-    params[:aTransport].to_i.times {aunits.push(Transport.new(true))}
-    params[:aSub].to_i.times {aunits.push(Sub.new(true,superSubs))}
-
-    #      aunits = aunits.reject{|unit| unit.is_a?(Bship1stHit)} if ahas_land #if there are land units, take out the first hit
-  #   @ahas_sea = aunits.any?{|unit| (unit.type == 'sea') and (not(unit.is_a?(Battleship) or unit.is_a?(Bship1stHit) or (unit.is_a?(Destroyer) and (@combinedBombardment.get_value == '1'))))}
-  #   if @ahas_sea or @dhas_sea
-  #     self.disable_land
-  #   else
-  #     self.enable_land
-  #   end
-  # 
-  #   if @asort.to_s == 'value'
-  #     aunits.sort!{|a,b| (a.value <=> b.value) == 0 ? a.power <=> b.power : a.value <=> b.value}
-  #   else
-  #     @asort.value ='power' #in case it's set to 'other'
-      aunits.sort!{|a,b| (a.power <=> b.power) == 0 ? a.value <=> b.value : a.power <=> b.power}
-  #   end
-  # 
-  #   self.update_lists  
-    
   #CALCULATE
       
     start = Time.now.to_f 
@@ -733,6 +734,35 @@ get '/results/:thread_id' do
   end
 end
 
+get '/inputerror/:type/:input/:error' do
+  case params[:type]
+    when 'unit'  
+      text = 'There was a problem with your input. The text in bold and italics is not a recognized unit type.'
+    when 'nan'
+      text = 'There was a problem with your input. Something other than a number was given when a number was expected. The text in bold and italics may help identify the problem.'
+    when 'ian'
+      text = 'There was a problem with your input. A number was given instead of a unit type. The text in bold and italics may help identify the problem.'
+    when 'wn' 
+      text = 'There was a problem with your input. An even number of arguments was expected, but an odd number was received. Perhaps you forgot a number or unit type.'
+  end
+  input = params[:input].gsub(/(_)/,' ')
+  haml <<inputerror
+%html{:xmlns => "http://www.w3.org/1999/xhtml", "xml:lang" => "en", :lang => "en"}
+  %head
+    %meta{"http-equiv" => "Content-type", :content =>" text/html;charset=UTF-8"}
+    %title Input Error
+  %body
+    %h1 Input Error
+    %p
+      #{input.gsub(/(#{params[:error]})/i,'<em><strong>' + params[:error] + '</strong></em>')}
+    %p
+      #{text}
+    %p
+      %a{:href=>"../"}
+        Main Page
+inputerror
+end
+
 get '/battlenotfound' do
   haml <<'nobattle'
 %html{:xmlns => "http://www.w3.org/1999/xhtml", "xml:lang" => "en", :lang => "en"}
@@ -778,11 +808,15 @@ __END__
       %img{:src => "aacalc192.png",:height=>"192",:width=>"192",:alt=>"Logo"}
     %h1='aacalc'
     %p
-      Instructions: enter information, click 'Calculate', and wait. If you enter a nonsensical battle, you may get a nonsensical result.
+      This web application calculates the exact odds for battles in the revised edition of the board game Axis and Allies -- it does not estimate the results using randomness. All rules are implemented except special submarine rules (first strike, cannot attack aircraft).
     %p
-      This web application calculates the exact odds for battles in the revised edition of the board game Axis and Allies -- it does not estimate the results using randomness. All rules are implemented except special submarine rules (first strike, cannot attack aircraft). If you include both land and sea units in an attack, then the sea units will bombard. The order units are lost in can effect the odds in the battle. As it stand right now, the loss order is determined by attack or defense power (whichever is appropriate).
+      %strong
+        Instructions:
+      enter information, click 'Calculate', and wait. If you enter a nonsensical battle, you may get a nonsensical result. If you include both land and sea units in an attack, then the sea units will bombard. The order units are lost in can effect the odds in the battle. Units entered further to the left will be lost first. Battleships will always take their first hit before other units are hit.
     %p
-      This program is a work in progress. A more advanced offline version exists. It allows you set any loss order you wish, and the program will likely run faster (since this application is being hosted by a slow computer). Here are some links for more information:
+      Units are entered by number then type (e.g. "3 infantry 2 artillery 5 tanks"). Any space free character sequence starting with 'i' will work for infantry (for example, 'i', 'inf', 'infantry', and 'iOMG' will all work -- 'i n f' will not). Similarly, 'ar' for artillery, 'ta' for tank, 'f' for fighter, 'bo' for bomber, 'd' for destroyer, 'ba' or 'bs' for battleship, 'ai' or 'ac' or 'c' for the aircraft carrier, and 's' for submarines. The case of the letters does not matter.
+    %p
+      An offline version of this program exists. Its interface is nicer, and the program will likely run faster (since this application is being hosted by a slow computer). Here are some links for more information:
     %ul
       %li
         The
@@ -816,61 +850,11 @@ __END__
           %td
             %h2='Attackers'
             %p
-              %input{:type =>'text', :size => '3', :name=>'aInfantry'}
-              Infantry
-              %br
-              %input{:type =>'text', :size => '3', :name=>'aTank'}
-              Tanks
-              %br
-              %input{:type =>'text', :size => '3', :name=>'aArtillery'}
-              Artillery
-              %br
-              %input{:type =>'text', :size => '3', :name=>'aFighter'}
-              Fighter
-              %br
-              %input{:type =>'text', :size => '3', :name=>'aBomber'}
-              Bomber
-              %br
-              %input{:type =>'text', :size => '3', :name=>'aDestroyer'}
-              Destroyer
-              %br
-              %input{:type =>'text', :size => '3', :name=>'aBattleship'}
-              Battleship
-              %br
-              %input{:type =>'text', :size => '3', :name=>'aTransport'}
-              Transport
-              %br
-              %input{:type =>'text', :size => '3', :name=>'aSubmarine'}
-              Submarine
+              %input{:type =>'text', :size => '40', :name=>'attackers'}
           %td
             %h2='Defenders'
             %p
-              %input{:type =>'text', :size => '3', :name=>'dInfantry'}
-              Infantry
-              %br
-              %input{:type =>'text', :size => '3', :name=>'dTank'}
-              Tanks
-              %br
-              %input{:type =>'text', :size => '3', :name=>'dArtillery'}
-              Artillery
-              %br
-              %input{:type =>'text', :size => '3', :name=>'dFighter'}
-              Fighter
-              %br
-              %input{:type =>'text', :size => '3', :name=>'dBomber'}
-              Bomber
-              %br
-              %input{:type =>'text', :size => '3', :name=>'dDestroyer'}
-              Destroyer
-              %br
-              %input{:type =>'text', :size => '3', :name=>'dBattleship'}
-              Battleship
-              %br
-              %input{:type =>'text', :size => '3', :name=>'dTransport'}
-              Transport
-              %br
-              %input{:type =>'text', :size => '3', :name=>'dSubmarine'}
-              Submarine
+              %input{:type =>'text', :size => '40', :name=>'defenders'}
         %tr
           %td{:colspan=>"2"}
             %input{:type => :submit, :value => "Calculate"}

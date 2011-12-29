@@ -216,7 +216,12 @@ post '/result' do
     print "Operation completed in #{Time.now.to_f - start} seconds\n"
 
   #DISPLAY RESULTS  
-    
+puts "done calculation"
+puts "pawins #{pawins}"
+puts "pdwins #{pdwins}"
+puts "pnwins #{pnwins}"
+puts "pswins #{pswins}"
+
     battle_details = Hash.new
     battle_details['Summary of odds'] = {'Attacker wins'=>pawins,
       'Defender wins'=>pdwins,'Mutual annihilation'=>pnwins,'Sum'=>pawins+pdwins+pnwins}
@@ -244,8 +249,10 @@ get '/results/:thread_id' do
   if not $calcThreads.has_key?(@thread_id)
     redirect "/battlenotfound"
   elsif $calcThreads[@thread_id].status
+puts "calculating"
     haml :calculating
   else
+puts "results"
     haml :results
   end
 end
@@ -413,11 +420,16 @@ __END__
     %meta{"http-equiv" => "Content-type", :content =>" text/html;charset=UTF-8"}
     %title Battle Results
   %body
+    %a{:href=>"../"}
+      Main Page
     %h1='Results'
     %p
       %a{:href=>"/whatitmean"} What does all this mean?
     %h2='Summary of odds'
     %p
+      = puts "first " + $battleDetails[@thread_id].object_id.to_s
+      = puts "second " + $battleDetails[@thread_id]['Summary of odds'].object_id.to_s
+      = puts "third " + $battleDetails[@thread_id]['Summary of odds']['Attacker wins'].object_id.to_s
       Attacker wins: #{$battleDetails[@thread_id]['Summary of odds']['Attacker wins']}
       %br
       Defender wins: #{$battleDetails[@thread_id]['Summary of odds']['Defender wins']}

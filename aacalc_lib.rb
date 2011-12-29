@@ -256,6 +256,19 @@ class Army
     inf.each_with_index{|inf,i| inf.two_power if i < numart}
   end
   
+  #returns a string describing the army in reverse loss order
+  #e.g. "1 Tank, 1 Fighter, 2 Tank" means first lose 2 tanks, then 1 fighter, and 1 tank last
+  def to_s
+    c, t, s = @arr.reverse.inject([0, nil, '']) do |(count, type, string), unit|
+      if (unit.class == type) or (type == nil)
+	[count+1, unit.class, string]
+      else
+        [1, unit.class, string + count.to_s + ' ' + type.to_s + ', ']
+      end
+    end
+    s + c.to_s + ' ' + t.to_s
+  end
+  
   #return a duplicate of the array with new objects in it
   def dup_arr
     @arr.collect{|unit| unit.dup}

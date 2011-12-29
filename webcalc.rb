@@ -173,24 +173,25 @@ post '/result' do
     end
 
     #make the armies from the unit arrays; note that we really want the array's order reduced
-    a = Army.new(aunits.reverse)
-    d = Army.new(dunits.reverse)
-
+    attackingArmy = Army.new(aunits.reverse)
+    defendingArmy = Army.new(dunits.reverse)
     #if there are aaguns, then that can screw up the loss order, so we need multiple battles to handle them
-    numaircraft = a.num_aircraft
+    numaircraft = attackingArmy.num_aircraft
     battles = Array.new
-    battles << Battle.new(a, d, bombarders, binom(numaircraft,0,1.0/6.0))
-    if aaGun #we have to deal with other battles
-      a2 = a.dup #a2 will be a with aircraft killed by aaguns
+    if aaGun and (numaircraft > 0) #we have to deal with other battles
+      battles << Battle.new(attackingArmy, defendingArmy, bombarders, binom(numaircraft,0,1.0/6.0))
+      a = attackingArmy.dup #so we can remove air units but not screw up attackingArmy
       #find where the aircraft are in the array
       aircraftindexes = Array.new
-      a2.arr.each_with_index{|u,i| aircraftindexes << i if u.type == :air}
-      numaircraft.times do |hits|
-	a2 = a2.lose_one(:air)
-	battles << Battle.new(a2, d, bombarders, binom(numaircraft,hits,1.0/6.0))
-      end
+      a.arr.each_with_index{|u,i| aircraftindexes << i if u.type == :air}
+      numaircraft.times do |i|
+	hits = i + 1
+	a = a.lose_one(:air)
+	battles << Battle.new(a, defendingArmy, bombarders, binom(numaircraft,hits,1.0/6.0))
+	end
+    else #only one battle to worry about
+      battles << Battle.new(attackingArmy, defendingArmy, bombarders)
     end
-  
     #find the probabilities for winning. Can just add up multiple battles since they're already appropriately weighted
     pawins = battles.inject(0){|s,b|s + b.awins}
     pdwins = battles.inject(0){|s,b|s + b.dwins}
@@ -201,7 +202,6 @@ post '/result' do
 
     #d doesn't lose any units from aaguns, so we can just add everything together
     dcumprobs = battles.collect{|b|b.dcumprobs}.inject{|s,a| s.zip(a).collect{|b,c|b+c}}
-
     #the same is not true for a, so this takes more work
     acumprobs = Array.new
     battles.each_with_index{|b,i|
@@ -212,15 +212,7 @@ post '/result' do
       acumprobs << probs.reverse
     }
     acumprobs = acumprobs.inject{|s,a| s.zip(a).collect{|b,c|b+c}}
-
     print "Battle calculated in #{Time.now.to_f - start.to_f} seconds\n"
-
-  #DISPLAY RESULTS  
-puts "done calculation"
-puts "pawins #{pawins}"
-puts "pdwins #{pdwins}"
-puts "pnwins #{pnwins}"
-puts "pswins #{pswins}"
 
     battle_details = Hash.new
     battle_details[:SummaryOfOdds] = {:AttackerWins=>pawins,
@@ -234,8 +226,8 @@ puts "pswins #{pswins}"
 				     :SuperSubs => superSubs}
     battle_details[:Bomardment] = (bombarders != nil)
     battle_details[:Bombarders] = bombarders.arr.collect{|u| u.class.to_s + ' '} if bombarders != nil
-    battle_details[:AttackingUnitsAndOdds] = a.arr.collect{|u| u.class.to_s + ' '}.zip(acumprobs)
-    battle_details[:DefendingUnitsAndOdds] = d.arr.collect{|u| u.class.to_s + ' '}.zip(dcumprobs)
+    battle_details[:DefendingUnitsAndOdds] = defendingArmy.arr.collect{|u| u.class.to_s + ' '}.zip(dcumprobs)
+    battle_details[:AttackingUnitsAndOdds] = attackingArmy.arr.collect{|u| u.class.to_s + ' '}.zip(acumprobs)
     battle_details[:TimeStarted] = start
     battle_details[:TimeComplete] = Time.now
     battle_details[:Attackers] = params[:attackers]
@@ -243,7 +235,6 @@ puts "pswins #{pswins}"
     $battleDetails[Thread.current.object_id] = battle_details
   end
   $calcThreads[calcThread.object_id] = calcThread
-
   redirect "/results/#{calcThread.object_id}"
 end
 
@@ -253,10 +244,10 @@ get '/results/:thread_id' do
   if not $calcThreads.has_key?(@thread_id)
     redirect "/battlenotfound"
   elsif $calcThreads[@thread_id].status
-puts "calculating"
     haml :calculating
-  else
-puts "results"
+  elsif $calcThreads[@thread_id].status == nil #the calc thread ran in to an error
+    redirect "/calcthreaderror"
+  else #if the status is false, that means it has completed sucessfully
     haml :results
   end
 end
@@ -322,6 +313,31 @@ get '/battlenotfound' do
 nobattle
 end
 
+get '/calcthreaderror' do
+  haml <<'error'
+%html{:xmlns => "http://www.w3.org/1999/xhtml", "xml:lang" => "en", :lang => "en"}
+  %head
+    %meta{"http-equiv" => "Content-type", :content =>" text/html;charset=UTF-8"}
+    %title Calculation Error
+  %body
+    %h1 There has been an error during calculation.
+    %p
+      This is probably a problem with my program. You can try running the battle again from the main page, but feel free to contact me if this error persists.
+    %p
+      %a{:href=>"&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#108;&#101;&#111;&#110;&#46;&#109;&#97;&#117;&#114;&#101;&#114;&#64;&#103;&#109;&#97;&#105;&#108;&#46;&#99;&#111;&#109;"}
+        Email me
+    %p
+      %a{:href=>"../"}
+        Main Page
+    %p
+      %a{:href=>"http://validator.w3.org/check?uri=referer"}
+        %img{:src => "http://www.w3.org/Icons/valid-xhtml10-blue",:alt=>"Valid XHTML 1.0 Strict",:height=>"31",:width=>"88",:style=>"border-style:none"}
+    / Site Meter XHTML Strict 1.0
+    %script{:type => 'text/javascript', :src=> 'http://s27.sitemeter.com/js/counter.js?site=s27webap'}
+    / Copyright (c)2006 Site Meter
+error
+end
+
 get '/whatitmean' do
   haml <<'whatitmean'
 %html{:xmlns => "http://www.w3.org/1999/xhtml", "xml:lang" => "en", :lang => "en"}
@@ -331,7 +347,7 @@ get '/whatitmean' do
   %body
     %h1 What does it all mean?
     %p Probabilities are shown as numbers between 0 and 1.
-    %p The :SummaryOfOdds shows the probabilities of the overall outcomes. In this setting, the attacker or defender wins if they have at least one unit survive the battle. Mutual annihilation means that no units survive the battle (this is technically a win for the defender). The sum of these three should be exactly 1.0. However, rounding errors may produce results like "1.00000000000003". This is normal result of using floating point numbers (which cannot exactly express numbers like one third). If you get a result that differs from 1.0 by a more significant extent, feel free to send the information about the battle to me so that I can look in to it.
+    %p The Summary Of Odds shows the probabilities of the overall outcomes. In this setting, the attacker or defender wins if they have at least one unit survive the battle. Mutual annihilation means that no units survive the battle (this is technically a win for the defender). The sum of these three should be exactly 1.0. However, rounding errors may produce results like "1.00000000000003". This is normal result of using floating point numbers (which cannot exactly express numbers like one third). If you get a result that differs from 1.0 by a more significant extent, feel free to send the information about the battle to me so that I can look in to it.
     %p For the units and odds sections, the number to the right of a unit is the probability that that unit, and the ones above it, survive the battle.
     %p Note that the results of a battle will be available (from the previous page) for a while, but may eventually be deleted.
     %p Use your browser's back button to return to the battle results.
@@ -429,11 +445,8 @@ __END__
     %h1='Results'
     %p
       %a{:href=>"/whatitmean"} What does all this mean?
-    %h2=:SummaryOfOdds
+    %h2='Summary Of Odds'
     %p
-      = puts "first " + $battleDetails[@thread_id].object_id.to_s
-      = puts "second " + $battleDetails[@thread_id][:SummaryOfOdds].object_id.to_s
-      = puts "third " + $battleDetails[@thread_id][:SummaryOfOdds][:AttackerWins].object_id.to_s
       Attacker wins: #{$battleDetails[@thread_id][:SummaryOfOdds][:AttackerWins]}
       %br
       Defender wins: #{$battleDetails[@thread_id][:SummaryOfOdds][:DefenderWins]}

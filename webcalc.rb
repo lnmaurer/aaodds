@@ -1,12 +1,45 @@
+#!/usr/bin/ruby
+
+# aacalc -- An odds calculator for Axis and Allies
+#Copyright (C) 2011  Leon N. Maurer
+
+#This program is free software; you can redistribute it and/or
+#modify it under the terms of the GNU General Public License
+#version 2 as published by the Free Software Foundation;
+
+#This program is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+
+#A copy of the license is available at 
+#<http://www.gnu.org/licenses/old-licenses/gpl-2.0.html>
+#You can also receive a paper copy by writing the Free Software
+#Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
 require 'rubygems'
 require 'haml'
 require 'sinatra'
 require 'aacalc_lib'
 
+#the key to the following three hashes will be the object_id of the thread
+#used for a particular battle
+$battleDetails = Hash.new #will store the results of each battle
+$calcThreads = Hash.new #stores the threades used to calculate each battle
+$output = Hash.new('') #will hold the output made during calculation -- starts off with an empty string
+
+#the new print function just stores the output in a string for the appropriate battle
+alias oldprint print
+def print(s)
+  $output[Thread.current.object_id] += s
+end
+
+#the index page
 get '/' do
   haml :index
 end
 
+#after a battle is entered on the index page, we post the details here, where we start the calculation
 post '/result' do
   
   aunits = Array.new
@@ -14,6 +47,8 @@ post '/result' do
   attackers = Array.new
   defenders = Array.new
   
+  #read the attachers from parameters and go to the error page if the input isn't good
+  #attackers is an array of the form [[#units, unit type],...]
   params[:attackers].split.each_with_index{|s,i|
     if (i % 2 ) == 0 #should be a number
       attackers << Array.new
@@ -26,6 +61,8 @@ post '/result' do
   }
   redirect "/inputerror/wn/#{params[:attackers].gsub(/\s+/,'_')}/nil" if attackers[-1].size == 1
 
+  #read the defenders from parameters and go to the error page if the input isn't good
+  #defenders is an array of the form [[#units, unit type],...]
   params[:defenders].split.each_with_index{|s,i|
     if (i % 2 ) == 0 #should be a number
       defenders << Array.new
@@ -38,12 +75,14 @@ post '/result' do
   }
   redirect "/inputerror/wn/#{params[:defenders].gsub(/\s+/,'_')}/nil" if defenders[-1].size == 1  
   
+  #look at the checkbox parameters
   aaGun = (params[:AAGun] != nil)
   heavyBombers = (params[:HeavyBombers] != nil)
   combinedBombardment = (params[:CombinedBombardment] != nil)
   jets = (params[:Jets] != nil)
   superSubs = (params[:SuperSubs] != nil)
-  
+
+  #now, take attckers and defenders arrays and push them in to arrays of units
   attackers.each{|num,unit|
     case unit
     when /\A(i)/i
@@ -72,7 +111,7 @@ post '/result' do
     end              
   }
   aunits = aunits.sort_by{|u| u.is_a?(Bship1stHit) ? 0 : 1}
-puts aunits.size
+
   defenders.each{|num,unit|
     case unit
     when /\A(i)/i
@@ -100,18 +139,16 @@ puts aunits.size
       redirect "/inputerror/unit/#{params[:defenders].gsub(/\s+/,'_')}/#{unit}"        
     end              
   }              
-  
   dunits = dunits.sort_by{|u| u.is_a?(Bship1stHit) ? 0 : 1}
                 
-  calcThread = Thread.new{
-  #CALCULATE
-      
-    start = Time.now.to_f 
-  #  self.reset_console
+  #now, make a thread to handle the calculation
+  calcThread = Thread.new do
+    start = Time.now.to_f #keep track of start time
 
     has_land = (aunits + dunits).any?{|u| u.type == :land}
     has_sea = (aunits + dunits).any?{|u| u.type == :sea}
 
+    #is a bombardment going to happen? Assume it will if there are both land and sea attacking units
     bombarders = nil
     if has_land and has_sea #then there's a bombardment coming
       bombarders = Army.new(aunits.select{|u| u.type == :sea})
@@ -119,25 +156,36 @@ puts aunits.size
       aunits = aunits.reject{|u| u.type == :sea}
     end
 
+    #make the armies from the unit arrays; note that we really want the array's order reduced
     a = Army.new(aunits.reverse)
     d = Army.new(dunits.reverse)
 
+    #if there are aaguns, then that can screw up the loss order, so we need multiple battles to handle them
+    numaircraft = a.num_aircraft
     battles = Array.new
-    a2 = a.dup
-    numaircraft = aaGun ? a.num_aircraft : 0
-    aircraftindexes = Array.new
-    a2.arr.each_with_index{|u,i| aircraftindexes << i if u.type == :air}
-    for hits in 0..numaircraft #exceutes even if numaircraft == 0
-      battles << Battle.new(a2,d,bombarders, binom(numaircraft,hits,1.0/6.0))
-      a2 = a2.lose_one(:air)
+    battles << Battle.new(a, d, bombarders, binom(numaircraft,0,1.0/6.0))
+    if aaGun #we have to deal with other battles
+      a2 = a.dup #a2 will be a with aircraft killed by aaguns
+      #find where the aircraft are in the array
+      aircraftindexes = Array.new
+      a2.arr.each_with_index{|u,i| aircraftindexes << i if u.type == :air}
+      numaircraft.times do |hits|
+	a2 = a2.lose_one(:air)
+	battles << Battle.new(a2, d, bombarders, binom(numaircraft,hits,1.0/6.0))
+      end
     end
-
+  
+    #find the probabilities for winning. Can just add up multiple battles since they're already appropriately weighted
     pawins = battles.inject(0){|s,b|s + b.awins}
     pdwins = battles.inject(0){|s,b|s + b.dwins}
     pnwins = battles.inject(0){|s,b|s + b.nwins}
     pswins = pawins + pdwins + pnwins
+  
+    #now, find cumulative probabilities
+
     #d doesn't lose any units from aaguns, so we can just add everything together
     dcumprobs = battles.collect{|b|b.dcumprobs}.inject{|s,a| s.zip(a).collect{|b,c|b+c}}
+
     #the same is not true for a, so this takes more work
     acumprobs = Array.new
     battles.each_with_index{|b,i|
@@ -148,14 +196,6 @@ puts aunits.size
       acumprobs << probs.reverse
     }
     acumprobs = acumprobs.inject{|s,a| s.zip(a).collect{|b,c|b+c}}
-
-  #  attackerProb.value = pawins.to_s
-  #  defenderProb.value = pdwins.to_s
-  #  annihilationProb.value = pnwins.to_s
-  #  sumProb.value = pswins.to_s
-  #  aunits = oldaunits if has_land and has_sea
-  #  anames.value = anames.list.collect{|s|s.split[0]}.zip(acumprobs.reverse).collect{|a| sprintf("%-11s %.6f",a[0],a[1] ? a[1] : 1)}
-  #  dnames.value = dnames.list.collect{|s|s.split[0]}.zip(dcumprobs.reverse).collect{|a| sprintf("%-11s %.6f",a[0],a[1] ? a[1] : 1)}
 
     print "Operation completed in #{Time.now.to_f - start} seconds\n"
 
@@ -176,7 +216,7 @@ puts aunits.size
     battle_details['Attackers'] = params[:attackers]
     battle_details['Defenders'] = params[:defenders]
     $battleDetails[calcThread.object_id] = battle_details
-  }
+  end
   $calcThreads[calcThread.object_id] = calcThread
   
   

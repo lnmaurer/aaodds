@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 
 # aacalc -- An odds calculator for Axis and Allies
-#Copyright (C) 2008  Leon N. Maurer
+#Copyright (C) 2011  Leon N. Maurer
 
 #This program is free software; you can redistribute it and/or
 #modify it under the terms of the GNU General Public License
@@ -21,6 +21,11 @@
 require 'tkextlib/tile'
 require 'yaml'
 require 'aacalc_lib'
+
+alias oldprint print
+def print(s)
+  $gui.print_to_console(s)
+end
 
 class BattleGUI
   def initialize

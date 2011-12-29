@@ -1,3 +1,20 @@
+# aacalc -- An odds calculator for Axis and Allies
+#Copyright (C) 2011  Leon N. Maurer
+
+#This program is free software; you can redistribute it and/or
+#modify it under the terms of the GNU General Public License
+#version 2 as published by the Free Software Foundation;
+
+#This program is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+
+#A copy of the license is available at 
+#<http://www.gnu.org/licenses/old-licenses/gpl-2.0.html>
+#You can also receive a paper copy by writing the Free Software
+#Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
 #if it's available, the GNU Scientific Library can be used for matrix/vector
 #multiplication, which speeds the process up greatly
 $use_gsl = true
@@ -6,19 +23,6 @@ begin
 rescue Exception
   require 'matrix'
   $use_gsl = false
-end
-
-#the key to the following three hashes will be the object_id of the thread
-#used for a particular battle
-$battleDetails = Hash.new #will store the results of each battle
-$calcThreads = Hash.new #stores the threades used to calculate each battle
-$output = Hash.new('') #will hold the output made during calculation -- starts off with an empty string
-
-#the new print function just stores the output in a string for the appropriate battle
-alias oldprint print
-def print(s)
-  $output[Thread.current.object_id] += s
-#  oldprint s
 end
 
 #neither gsl nor the built in matrix class includes two useful functions

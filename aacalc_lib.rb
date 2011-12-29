@@ -111,6 +111,7 @@ end
 #this is needed to accont for rounding error when adding probabilities
 $error = 0.001
 
+#the base class for all units
 class Unit
   attr_reader :value, :attack, :defend, :type
   def initialize(attack, defend, value, type, attacking)
@@ -200,6 +201,7 @@ class Battleship < Unit
   end
 end
 
+#battleship that has been damaged
 class Bship1stHit < Unit
   def initialize(a)
     super(0,0,0,:sea,a)
@@ -240,11 +242,12 @@ class Sub < Unit
   end
 end
 
+#an army is a container for a group of units which keeps track of their loss order
 class Army
   attr_reader :size, :hits, :arr
   
-  def initialize(arr)
-    @arr = arr #contains the units in reverse loss order
+  def initialize(arr) #arr contains the units in reverse loss order
+    @arr = arr
     @size = @arr.size
     @hits = @arr.inject(0){|sum, unit| sum + ((unit.is_a?(Bomber) and unit.heavy) ? 2 : 1)}
     #infantry pairing
@@ -252,15 +255,21 @@ class Army
     numart = @arr.inject(0){|sum,unit| sum + (unit.is_a?(Artillery) ? 1 : 0)}
     inf.each_with_index{|inf,i| inf.two_power if i < numart}
   end
+  
+  #return a duplicate of the array with new objects in it
   def dup_arr
     @arr.collect{|unit| unit.dup}
   end
+  
+  #returns a duplicate of this army with new objects for units
   def dup
     Army.new(self.dup_arr)
   end
-  def lose_one(type = nil)
+  
+  #returns a new army with one unit lost; can specify the type of unit to loose (land, air, or sea)
+  def lose_one(type = nil) #
     narr = self.dup_arr
-    if type == nil
+    if type == nil #if no type given, just lose least valued unit
       narr.pop
     else
       lost_one = false
@@ -270,6 +279,8 @@ class Army
     end
     Army.new(narr)
   end
+  
+  #returns an array containing the probability of getting hits [P(0 hits), P(1 hits),..., P(max hits)]
   def probs
     p = Array.new(@hits + 1, 0) #p[n] will contain the probability of getting n hits
     p[0] = 1
@@ -297,15 +308,19 @@ class Army
     }
     p
   end
+  
+  #returns true if the army has aircraft
   def has_aircraft
     @arr.any?{|unit| unit.type == :air}
   end
+  
+  #returns the number of aircraft in the army
   def num_aircraft
     @arr.inject(0){|s,u|s + (u.type == :air).to_i}
   end
 end
 
-
+#A battle is a fight between two units. This object calculates the battle odds.
 class Battle
   attr_reader :aprobs, :dprobs, :mat, :transmat, :state, :t, :a, :d, :bombarders
   #each state the battle (which attackers and defeners are still alive) has an
@@ -320,8 +335,8 @@ class Battle
   end
 
   def initialize(a,d,bombarders,weight=1.0)
-    @a = a
-    @d = d
+    @a = a #attackers
+    @d = d #defenders
     @bombarders = bombarders
     #if this battle is (for example) part of a larger battle where AA guns are used
     #then the weight will correspond the the probability that this battle happens
@@ -469,6 +484,7 @@ class Battle
 
     @t = Time.now.to_f - start
   end
+  
   #returns an array where the elements correspond to the probability
   #that the corresponing unit in @arr (the array of units in Army)
   def acumprobs
@@ -483,6 +499,7 @@ class Battle
     end
     cdf    
   end
+  
   def dcumprobs
     probs = Array.new(@d.size, 0.0)
     @state.each_with_index{|p,i|
@@ -495,6 +512,7 @@ class Battle
     end
     cdf    
   end
+  
   #probabity attacker wins
   def awins
     prob = 0.0
@@ -504,6 +522,7 @@ class Battle
     }
     prob * @weight
   end
+  
   def dwins
     prob = 0.0
     @state.each_with_index{|p,i|
@@ -512,10 +531,13 @@ class Battle
     }
     prob * @weight
   end
+  
+  #the probability that no one survives the battle is stored in the last place in the array
   def nwins
-    #the probability that no one survives the battle is stored in the last place in the array
     @state[-1] * @weight
   end
+  
+  #returns total probs (should be 1.0)
   def tprob
     (awins + dwins + nwins) * @weight
   end

@@ -34,6 +34,23 @@ def print(s)
   $output[Thread.current.object_id] += s
 end
 
+#make a thread to delete old battles
+$cleanUp = Thread.new do
+  while true
+    if $battleDetails.size > 500 #keep 500 old battles in memory
+      #sort by age and select the oldest
+      delete_id = $battleDetails.sort{|a,b| a[1]['Time Complete'] <=> b[1]['Time Complete']}[0][0]
+      #delete all references to the old battle
+      $calcThreads.delete(delete_id)
+      $battleDetails.delete(delete_id)
+      $output.delete(delete_id)
+    else
+      #if there weren't too many battles, take a break before looking again.
+      Kernel.sleep(60)
+    end
+  end
+end
+
 #the index page
 get '/' do
   haml :index
@@ -41,109 +58,108 @@ end
 
 #after a battle is entered on the index page, we post the details here, where we start the calculation
 post '/result' do
-  
-  aunits = Array.new
-  dunits = Array.new
-  attackers = Array.new
-  defenders = Array.new
-  
-  #read the attachers from parameters and go to the error page if the input isn't good
-  #attackers is an array of the form [[#units, unit type],...]
-  params[:attackers].split.each_with_index{|s,i|
-    if (i % 2 ) == 0 #should be a number
-      attackers << Array.new
-      redirect "/inputerror/nan/#{params[:attackers].gsub(/\s+/,'_')}/#{s}" unless /\A\d+\z/ === s
-      attackers[i/2] << s.to_i
-    else #should be a unit
-      redirect "/inputerror/ian/#{params[:attackers].gsub(/\s+/,'_')}/#{s}" if /\A\d+\z/ === s
-      attackers[i/2] << s
-    end
-  }
-  redirect "/inputerror/wn/#{params[:attackers].gsub(/\s+/,'_')}/nil" if attackers[-1].size == 1
-
-  #read the defenders from parameters and go to the error page if the input isn't good
-  #defenders is an array of the form [[#units, unit type],...]
-  params[:defenders].split.each_with_index{|s,i|
-    if (i % 2 ) == 0 #should be a number
-      defenders << Array.new
-      redirect "/inputerror/nan/#{params[:defenders].gsub(/\s+/,'_')}/#{s}" unless /\A\d+\z/ === s
-      defenders[i/2] << s.to_i
-    else #should be a unit
-      redirect "/inputerror/ian/#{params[:defenders].gsub(/\s+/,'_')}/#{s}" if /\A\d+\z/ === s
-      defenders[i/2] << s
-    end
-  }
-  redirect "/inputerror/wn/#{params[:defenders].gsub(/\s+/,'_')}/nil" if defenders[-1].size == 1  
-  
-  #look at the checkbox parameters
-  aaGun = (params[:AAGun] != nil)
-  heavyBombers = (params[:HeavyBombers] != nil)
-  combinedBombardment = (params[:CombinedBombardment] != nil)
-  jets = (params[:Jets] != nil)
-  superSubs = (params[:SuperSubs] != nil)
-
-  #now, take attckers and defenders arrays and push them in to arrays of units
-  attackers.each{|num,unit|
-    case unit
-    when /\A(i)/i
-      num.times {aunits.push(Infantry.new(true))}
-    when /\A(ar)/i
-      num.times {aunits.push(Artillery.new(true))}
-    when /\A(ta)/i
-      num.times {aunits.push(Tank.new(true))}
-    when /\A(f)/i
-      num.times {aunits.push(Fighter.new(true,jets))}
-    when /\A(bo)/i
-      num.times {aunits.push(Bomber.new(true,heavyBombers))}
-    when /\A(d)/i
-      num.times {aunits.push(Destroyer.new(true))}
-    when /\A(ba)/i, /\A(bs)/i
-      num.times {aunits.push(Battleship.new(true))}
-      num.times {aunits.push(Bship1stHit.new(true))}
-    when /\A(ai)/i, /\A(ac)/i, /\A(c)/i
-      num.times {aunits.push(Carrier.new(true))}
-    when /\A(tr)/i
-      num.times {aunits.push(Transport.new(true))}
-    when /\A(s)/i
-      num.times {aunits.push(Sub.new(true,superSubs))}
-    else
-      redirect "/inputerror/unit/#{params[:attackers].gsub(/\s+/,'_')}/#{unit}"
-    end              
-  }
-  aunits = aunits.sort_by{|u| u.is_a?(Bship1stHit) ? 0 : 1}
-
-  defenders.each{|num,unit|
-    case unit
-    when /\A(i)/i
-      num.times {dunits.push(Infantry.new(false))}
-    when /\A(ar)/i
-      num.times {dunits.push(Artillery.new(false))}
-    when /\A(ta)/i
-      num.times {dunits.push(Tank.new(false))}
-    when /\A(f)/i
-      num.times {dunits.push(Fighter.new(false,jets))}
-    when /\A(bo)/i
-      num.times {dunits.push(Bomber.new(false,heavyBombers))}
-    when /\A(d)/i
-      num.times {dunits.push(Destroyer.new(false))}
-    when /\A(ba)/i, /\A(bs)/i
-      num.times {dunits.push(Battleship.new(false))}
-      num.times {dunits.push(Bship1stHit.new(false))}
-    when /\A(ai)/i, /\A(ac)/i, /\A(c)/i
-      num.times {dunits.push(Carrier.new(false))}
-    when /\A(tr)/i
-      num.times {dunits.push(Transport.new(false))}
-    when /\A(s)/i
-      num.times {dunits.push(Sub.new(false,superSubs))}
-    else
-      redirect "/inputerror/unit/#{params[:defenders].gsub(/\s+/,'_')}/#{unit}"        
-    end              
-  }              
-  dunits = dunits.sort_by{|u| u.is_a?(Bship1stHit) ? 0 : 1}
-                
-  #now, make a thread to handle the calculation
+  #make a thread to handle the calculation so that we can do more than one at once
   calcThread = Thread.new do
     start = Time.now.to_f #keep track of start time
+    
+    aunits = Array.new
+    dunits = Array.new
+    attackers = Array.new
+    defenders = Array.new
+    
+    #read the attachers from parameters and go to the error page if the input isn't good
+    #attackers is an array of the form [[#units, unit type],...]
+    params[:attackers].split.each_with_index{|s,i|
+      if (i % 2 ) == 0 #should be a number
+	attackers << Array.new
+	redirect "/inputerror/nan/#{params[:attackers].gsub(/\s+/,'_')}/#{s}" unless /\A\d+\z/ === s
+	attackers[i/2] << s.to_i
+      else #should be a unit
+	redirect "/inputerror/ian/#{params[:attackers].gsub(/\s+/,'_')}/#{s}" if /\A\d+\z/ === s
+	attackers[i/2] << s
+      end
+    }
+    redirect "/inputerror/wn/#{params[:attackers].gsub(/\s+/,'_')}/nil" if attackers[-1].size == 1
+
+    #read the defenders from parameters and go to the error page if the input isn't good
+    #defenders is an array of the form [[#units, unit type],...]
+    params[:defenders].split.each_with_index{|s,i|
+      if (i % 2 ) == 0 #should be a number
+	defenders << Array.new
+	redirect "/inputerror/nan/#{params[:defenders].gsub(/\s+/,'_')}/#{s}" unless /\A\d+\z/ === s
+	defenders[i/2] << s.to_i
+      else #should be a unit
+	redirect "/inputerror/ian/#{params[:defenders].gsub(/\s+/,'_')}/#{s}" if /\A\d+\z/ === s
+	defenders[i/2] << s
+      end
+    }
+    redirect "/inputerror/wn/#{params[:defenders].gsub(/\s+/,'_')}/nil" if defenders[-1].size == 1  
+    
+    #look at the checkbox parameters
+    aaGun = (params[:AAGun] != nil)
+    heavyBombers = (params[:HeavyBombers] != nil)
+    combinedBombardment = (params[:CombinedBombardment] != nil)
+    jets = (params[:Jets] != nil)
+    superSubs = (params[:SuperSubs] != nil)
+
+    #now, take attckers and defenders arrays and push them in to arrays of units
+    attackers.each{|num,unit|
+      case unit
+      when /\A(i)/i
+	num.times {aunits.push(Infantry.new(true))}
+      when /\A(ar)/i
+	num.times {aunits.push(Artillery.new(true))}
+      when /\A(ta)/i
+	num.times {aunits.push(Tank.new(true))}
+      when /\A(f)/i
+	num.times {aunits.push(Fighter.new(true,jets))}
+      when /\A(bo)/i
+	num.times {aunits.push(Bomber.new(true,heavyBombers))}
+      when /\A(d)/i
+	num.times {aunits.push(Destroyer.new(true))}
+      when /\A(ba)/i, /\A(bs)/i
+	num.times {aunits.push(Battleship.new(true))}
+	num.times {aunits.push(Bship1stHit.new(true))}
+      when /\A(ai)/i, /\A(ac)/i, /\A(c)/i
+	num.times {aunits.push(Carrier.new(true))}
+      when /\A(tr)/i
+	num.times {aunits.push(Transport.new(true))}
+      when /\A(s)/i
+	num.times {aunits.push(Sub.new(true,superSubs))}
+      else
+	redirect "/inputerror/unit/#{params[:attackers].gsub(/\s+/,'_')}/#{unit}"
+      end              
+    }
+    aunits = aunits.sort_by{|u| u.is_a?(Bship1stHit) ? 0 : 1}
+
+    defenders.each{|num,unit|
+      case unit
+      when /\A(i)/i
+	num.times {dunits.push(Infantry.new(false))}
+      when /\A(ar)/i
+	num.times {dunits.push(Artillery.new(false))}
+      when /\A(ta)/i
+	num.times {dunits.push(Tank.new(false))}
+      when /\A(f)/i
+	num.times {dunits.push(Fighter.new(false,jets))}
+      when /\A(bo)/i
+	num.times {dunits.push(Bomber.new(false,heavyBombers))}
+      when /\A(d)/i
+	num.times {dunits.push(Destroyer.new(false))}
+      when /\A(ba)/i, /\A(bs)/i
+	num.times {dunits.push(Battleship.new(false))}
+	num.times {dunits.push(Bship1stHit.new(false))}
+      when /\A(ai)/i, /\A(ac)/i, /\A(c)/i
+	num.times {dunits.push(Carrier.new(false))}
+      when /\A(tr)/i
+	num.times {dunits.push(Transport.new(false))}
+      when /\A(s)/i
+	num.times {dunits.push(Sub.new(false,superSubs))}
+      else
+	redirect "/inputerror/unit/#{params[:defenders].gsub(/\s+/,'_')}/#{unit}"        
+      end              
+    }              
+    dunits = dunits.sort_by{|u| u.is_a?(Bship1stHit) ? 0 : 1}
 
     has_land = (aunits + dunits).any?{|u| u.type == :land}
     has_sea = (aunits + dunits).any?{|u| u.type == :sea}
@@ -215,28 +231,9 @@ post '/result' do
     battle_details['Time Complete'] = Time.now
     battle_details['Attackers'] = params[:attackers]
     battle_details['Defenders'] = params[:defenders]
-    $battleDetails[calcThread.object_id] = battle_details
+    $battleDetails[Thread.current.object_id] = battle_details
   end
   $calcThreads[calcThread.object_id] = calcThread
-  
-  
-  unless defined?($cleanUp)
-    $cleanUp = Thread.new{
-      while true
-        if $battleDetails.size > 500 #keep 500 old battles in memory
-          #sort by age and select the oldest
-          delete_id = $battleDetails.sort{|a,b| a[1]['Time Complete'] <=> b[1]['Time Complete']}[0][0]
-          #delete all references to the old battle
-          $calcThreads.delete(delete_id)
-          $battleDetails.delete(delete_id)
-          $output.delete(delete_id)
-        else
-          #if there weren't too many battles, take a break before looking again.
-          Kernel.sleep(60)
-        end
-      end
-      }
-  end
 
   redirect "/results/#{calcThread.object_id}"
 end

@@ -131,7 +131,7 @@ end
 
 class Infantry < Unit
   def initialize(a)
-    super(1,2,3,"land",a)
+    super(1,2,3,:land,a)
   end
   def two_power
     @attack = 2
@@ -143,7 +143,7 @@ end
 
 class Tank < Unit
   def initialize(a)
-    super(3,3,5,"land",a)
+    super(3,3,5,:land,a)
   end
   def dup
     Tank.new(@attacking)
@@ -152,7 +152,7 @@ end
 
 class Artillery < Unit
   def initialize(a)
-    super(2,2,4,"land",a)
+    super(2,2,4,:land,a)
   end
   def dup
     Artillery.new(@attacking)
@@ -162,9 +162,9 @@ end
 class Fighter < Unit
   def initialize(a,jet=false)
     if jet
-      super(3,5,10,"air",a)
+      super(3,5,10,:air,a)
     else
-      super(3,4,10,"air",a)
+      super(3,4,10,:air,a)
     end
   end
   def dup
@@ -176,7 +176,7 @@ class Bomber < Unit
   attr_reader :heavy
   def initialize(a,heavy=false)
     @heavy = heavy and a #if it's not attacking, then it can't really be heavy
-    super(4,1,15,"air",a)
+    super(4,1,15,:air,a)
   end
   def dup
     Bomber.new(@attacking,@heavy)
@@ -185,7 +185,7 @@ end
 
 class Destroyer < Unit
   def initialize(a)
-    super(3,3,12,"sea",a)
+    super(3,3,12,:sea,a)
   end
   def dup
     Destroyer.new(@attacking)
@@ -194,7 +194,7 @@ end
 
 class Battleship < Unit
   def initialize(a)
-    super(4,4,24,"sea",a)
+    super(4,4,24,:sea,a)
   end
   def dup
     Battleship.new(@attacking)
@@ -203,7 +203,7 @@ end
 
 class Bship1stHit < Unit
   def initialize(a)
-    super(0,0,0,"sea",a)
+    super(0,0,0,:sea,a)
   end
   def dup
     Bship1stHit.new(@attacking)
@@ -212,7 +212,7 @@ end
 
 class Carrier < Unit
   def initialize(a)
-    super(1,3,16,"sea",a)
+    super(1,3,16,:sea,a)
   end
   def dup
     Carrier.new(@attacking)
@@ -221,7 +221,7 @@ end
 
 class Transport < Unit
   def initialize(a)
-    super(0,1,8,"sea",a)
+    super(0,1,8,:sea,a)
   end
   def dup
     Transport.new(@attacking)
@@ -231,9 +231,9 @@ end
 class Sub < Unit
   def initialize(a,sup = false)
     if sup
-      super(3,2,8,"sea",a)
+      super(3,2,8,:sea,a)
     else
-      super(2,2,8,"sea",a)
+      super(2,2,8,:sea,a)
     end
   end
   def dup
@@ -253,19 +253,23 @@ class Army
     numart = @arr.inject(0){|sum,unit| sum + (unit.is_a?(Artillery) ? 1 : 0)}
     inf.each_with_index{|inf,i| inf.two_power if i < numart}
   end
+  def dup_arr
+    @arr.collect{|unit| unit.dup}
+  end
   def dup
-    Army.new(@arr.collect{|unit| unit.dup})
+    Army.new(self.dup_arr)
   end
-  def lose_one
-    narr = @arr.collect{|unit| unit.dup}
-    narr.pop
+  def lose_one(type = nil)
+    narr = self.dup_arr
+    if type == nil
+      narr.pop
+    else
+      lost_one = false
+      narr = self.dup_arr.reverse
+      narr = narr.reject{|unit| unit.type == type && ! lost_one ? lost_one = true : false}
+      Army.new(narr.reverse)
+    end
     Army.new(narr)
-  end
-  def lose_one_aircraft
-    lost_one = false
-    narr = @arr.reverse.collect{|unit| unit.dup}
-    narr = narr.reject{|unit| unit.type == 'air' && ! lost_one ? lost_one = true : false}
-    Army.new(narr.reverse)
   end
   def probs
     p = Array.new(@hits + 1, 0) #p[n] will contain the probability of getting n hits
@@ -295,10 +299,10 @@ class Army
     p
   end
   def has_aircraft
-    @arr.any?{|unit| unit.type == 'air'}
+    @arr.any?{|unit| unit.type == :air}
   end
   def num_aircraft
-    @arr.inject(0){|s,u|s + (u.type == 'air').to_i}
+    @arr.inject(0){|s,u|s + (u.type == :air).to_i}
   end
 end
 
@@ -625,14 +629,14 @@ puts aunits.size
     start = Time.now.to_f 
   #  self.reset_console
 
-    has_land = (aunits + dunits).any?{|u| u.type == 'land'}
-    has_sea = (aunits + dunits).any?{|u| u.type == 'sea'}
+    has_land = (aunits + dunits).any?{|u| u.type == :land}
+    has_sea = (aunits + dunits).any?{|u| u.type == :sea}
 
     bombarders = nil
     if has_land and has_sea #then there's a bombardment coming
-      bombarders = Army.new(aunits.select{|u| u.type == 'sea'})
+      bombarders = Army.new(aunits.select{|u| u.type == :sea})
       oldaunits = aunits #don't want to permantly remove ships -- just need to seperate them for computations
-      aunits = aunits.reject{|u| u.type == 'sea'}
+      aunits = aunits.reject{|u| u.type == :sea}
     end
 
     a = Army.new(aunits.reverse)
@@ -642,10 +646,10 @@ puts aunits.size
     a2 = a.dup
     numaircraft = aaGun ? a.num_aircraft : 0
     aircraftindexes = Array.new
-    a2.arr.each_with_index{|u,i| aircraftindexes << i if u.type == 'air'}
+    a2.arr.each_with_index{|u,i| aircraftindexes << i if u.type == :air}
     for hits in 0..numaircraft #exceutes even if numaircraft == 0
       battles << Battle.new(a2,d,bombarders, binom(numaircraft,hits,1.0/6.0))
-      a2 = a2.lose_one_aircraft
+      a2 = a2.lose_one(:air)
     end
 
     pawins = battles.inject(0){|s,b|s + b.awins}

@@ -39,7 +39,7 @@ $cleanUp = Thread.new do
   while true
     if $battleDetails.size > 500 #keep 500 old battles in memory
       #sort by age and select the oldest
-      delete_id = $battleDetails.sort{|a,b| a[1]['Time Complete'] <=> b[1]['Time Complete']}[0][0]
+      delete_id = $battleDetails.sort{|a,b| a[1][:TimeComplete] <=> b[1][:TimeComplete]}[0][0]
       #delete all references to the old battle
       $calcThreads.delete(delete_id)
       $battleDetails.delete(delete_id)
@@ -60,7 +60,7 @@ end
 post '/result' do
   #make a thread to handle the calculation so that we can do more than one at once
   calcThread = Thread.new do
-    start = Time.now.to_f #keep track of start time
+    start = Time.now #keep track of start time
     
     aunits = Array.new
     dunits = Array.new
@@ -213,7 +213,7 @@ post '/result' do
     }
     acumprobs = acumprobs.inject{|s,a| s.zip(a).collect{|b,c|b+c}}
 
-    print "Operation completed in #{Time.now.to_f - start} seconds\n"
+    print "Battle calculated in #{Time.now.to_f - start.to_f} seconds\n"
 
   #DISPLAY RESULTS  
 puts "done calculation"
@@ -223,19 +223,23 @@ puts "pnwins #{pnwins}"
 puts "pswins #{pswins}"
 
     battle_details = Hash.new
-    battle_details['Summary of odds'] = {'Attacker wins'=>pawins,
-      'Defender wins'=>pdwins,'Mutual annihilation'=>pnwins,'Sum'=>pawins+pdwins+pnwins}
-    battle_details['Technologies'] = {'AAguns'=> aaGun,
-      'Heavy Bombers'=> heavyBombers, 'Combined Bombardment'=>
-      combinedBombardment,'Jets' => jets,
-      'Super Subs' => superSubs}
-    battle_details['Bomardment'] = (bombarders != nil)
-    battle_details['Bombarders'] = bombarders.arr.collect{|u| u.class.to_s + ' '} if bombarders != nil
-    battle_details['Attacking units and odds'] = a.arr.collect{|u| u.class.to_s + ' '}.zip(acumprobs)
-    battle_details['Defending units and odds'] = d.arr.collect{|u| u.class.to_s + ' '}.zip(dcumprobs)
-    battle_details['Time Complete'] = Time.now
-    battle_details['Attackers'] = params[:attackers]
-    battle_details['Defenders'] = params[:defenders]
+    battle_details[:SummaryOfOdds] = {:AttackerWins=>pawins,
+				      :DefenderWins=>pdwins,
+                                      :MutualAnnihilation=>pnwins,
+                                      :Sum=>pswins}
+    battle_details[:Technologies] = {:AAguns=> aaGun,
+				     :HeavyBombers=> heavyBombers,
+                                     :CombinedBombardment=>combinedBombardment,
+                                     :Jets => jets,
+				     :SuperSubs => superSubs}
+    battle_details[:Bomardment] = (bombarders != nil)
+    battle_details[:Bombarders] = bombarders.arr.collect{|u| u.class.to_s + ' '} if bombarders != nil
+    battle_details[:AttackingUnitsAndOdds] = a.arr.collect{|u| u.class.to_s + ' '}.zip(acumprobs)
+    battle_details[:DefendingUnitsAndOdds] = d.arr.collect{|u| u.class.to_s + ' '}.zip(dcumprobs)
+    battle_details[:TimeStarted] = start
+    battle_details[:TimeComplete] = Time.now
+    battle_details[:Attackers] = params[:attackers]
+    battle_details[:Defenders] = params[:defenders]
     $battleDetails[Thread.current.object_id] = battle_details
   end
   $calcThreads[calcThread.object_id] = calcThread
@@ -327,7 +331,7 @@ get '/whatitmean' do
   %body
     %h1 What does it all mean?
     %p Probabilities are shown as numbers between 0 and 1.
-    %p The "Summary of odds" shows the probabilities of the overall outcomes. In this setting, the attacker or defender wins if they have at least one unit survive the battle. Mutual annihilation means that no units survive the battle (this is technically a win for the defender). The sum of these three should be exactly 1.0. However, rounding errors may produce results like "1.00000000000003". This is normal result of using floating point numbers (which cannot exactly express numbers like one third). If you get a result that differs from 1.0 by a more significant extent, feel free to send the information about the battle to me so that I can look in to it.
+    %p The :SummaryOfOdds shows the probabilities of the overall outcomes. In this setting, the attacker or defender wins if they have at least one unit survive the battle. Mutual annihilation means that no units survive the battle (this is technically a win for the defender). The sum of these three should be exactly 1.0. However, rounding errors may produce results like "1.00000000000003". This is normal result of using floating point numbers (which cannot exactly express numbers like one third). If you get a result that differs from 1.0 by a more significant extent, feel free to send the information about the battle to me so that I can look in to it.
     %p For the units and odds sections, the number to the right of a unit is the probability that that unit, and the ones above it, survive the battle.
     %p Note that the results of a battle will be available (from the previous page) for a while, but may eventually be deleted.
     %p Use your browser's back button to return to the battle results.
@@ -425,34 +429,34 @@ __END__
     %h1='Results'
     %p
       %a{:href=>"/whatitmean"} What does all this mean?
-    %h2='Summary of odds'
+    %h2=:SummaryOfOdds
     %p
       = puts "first " + $battleDetails[@thread_id].object_id.to_s
-      = puts "second " + $battleDetails[@thread_id]['Summary of odds'].object_id.to_s
-      = puts "third " + $battleDetails[@thread_id]['Summary of odds']['Attacker wins'].object_id.to_s
-      Attacker wins: #{$battleDetails[@thread_id]['Summary of odds']['Attacker wins']}
+      = puts "second " + $battleDetails[@thread_id][:SummaryOfOdds].object_id.to_s
+      = puts "third " + $battleDetails[@thread_id][:SummaryOfOdds][:AttackerWins].object_id.to_s
+      Attacker wins: #{$battleDetails[@thread_id][:SummaryOfOdds][:AttackerWins]}
       %br
-      Defender wins: #{$battleDetails[@thread_id]['Summary of odds']['Defender wins']}
+      Defender wins: #{$battleDetails[@thread_id][:SummaryOfOdds][:DefenderWins]}
       %br
-      Mutual annihilation: #{$battleDetails[@thread_id]['Summary of odds']['Mutual annihilation']}
+      Mutual annihilation: #{$battleDetails[@thread_id][:SummaryOfOdds][:MutualAnnihilation]}
       %br
-      Sum: #{$battleDetails[@thread_id]['Summary of odds']['Sum']}
+      Sum: #{$battleDetails[@thread_id][:SummaryOfOdds][:Sum]}
     %h2='Tech'
     %ul
-      - $battleDetails[@thread_id]['Technologies'].each_pair do |key,value|
+      - $battleDetails[@thread_id][:Technologies].each_pair do |key,value|
         %li #{key}: #{value}
-    - if $battleDetails[@thread_id]['Bomardment']
+    - if $battleDetails[@thread_id][:Bomardment]
       %h2='Bombarders'
       %ul
-        - $battleDetails[@thread_id]['Bombarders'].each do |s|
+        - $battleDetails[@thread_id][:Bombarders].each do |s|
           %li=s
     %h2='Attacking units and odds'
     %ul
-      - $battleDetails[@thread_id]['Attacking units and odds'].each do |s|
+      - $battleDetails[@thread_id][:AttackingUnitsAndOdds].each do |s|
         %li=s
     %h2='Defending units and odds'
     %ul
-      - $battleDetails[@thread_id]['Defending units and odds'].each do |s|
+      - $battleDetails[@thread_id][:DefendingUnitsAndOdds].each do |s|
         %li=s
     %h2="Log"
     %p=$output[@thread_id].gsub(/\n/,'<br />')
@@ -489,9 +493,9 @@ __END__
       - $calcThreads.reject{|thread_id,thread| thread.status}.each_key do |thread_id|
         %li
           %a{:href => "results/#{thread_id}"}#{thread_id},
-          Attackers: #{$battleDetails[thread_id]['Attackers']},
-          Defenders: #{$battleDetails[thread_id]['Defenders']},
-          Completed: #{$battleDetails[thread_id]['Time Complete']}
+          Attackers: #{$battleDetails[thread_id][:Attackers]},
+          Defenders: #{$battleDetails[thread_id][:Defenders]},
+          Completed: #{$battleDetails[thread_id][:TimeComplete]}
     %p
       %a{:href=>"../"}
         Main Page

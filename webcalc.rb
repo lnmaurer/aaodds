@@ -689,6 +689,8 @@ puts aunits.size
     battle_details['Attacking units and odds'] = a.arr.collect{|u| u.class.to_s + ' '}.zip(acumprobs)
     battle_details['Defending units and odds'] = d.arr.collect{|u| u.class.to_s + ' '}.zip(dcumprobs)
     battle_details['Time Complete'] = Time.now
+    battle_details['Attackers'] = params[:attackers]
+    battle_details['Defenders'] = params[:defenders]
     $battleDetails[calcThread.object_id] = battle_details
   }
   $calcThreads[calcThread.object_id] = calcThread
@@ -734,6 +736,10 @@ get '/results/:thread_id' do
   end
 end
 
+get '/calculated' do
+  haml :calculated
+end
+
 get '/inputerror/:type/:input/:error' do
   case params[:type]
     when 'unit'  
@@ -760,6 +766,12 @@ get '/inputerror/:type/:input/:error' do
     %p
       %a{:href=>"../"}
         Main Page
+    %p
+      %a{:href=>"http://validator.w3.org/check?uri=referer"}
+        %img{:src => "http://www.w3.org/Icons/valid-xhtml10-blue",:alt=>"Valid XHTML 1.0 Strict",:height=>"31",:width=>"88",:style=>"border-style:none"}
+    / Site Meter XHTML Strict 1.0
+    %script{:type => 'text/javascript', :src=> 'http://s27.sitemeter.com/js/counter.js?site=s27webap'}
+    / Copyright (c)2006 Site Meter
 inputerror
 end
 
@@ -776,6 +788,12 @@ get '/battlenotfound' do
     %p
       %a{:href=>"../"}
         Main Page
+    %p
+      %a{:href=>"http://validator.w3.org/check?uri=referer"}
+        %img{:src => "http://www.w3.org/Icons/valid-xhtml10-blue",:alt=>"Valid XHTML 1.0 Strict",:height=>"31",:width=>"88",:style=>"border-style:none"}
+    / Site Meter XHTML Strict 1.0
+    %script{:type => 'text/javascript', :src=> 'http://s27.sitemeter.com/js/counter.js?site=s27webap'}
+    / Copyright (c)2006 Site Meter
 nobattle
 end
 
@@ -792,6 +810,12 @@ get '/whatitmean' do
     %p For the units and odds sections, the number to the right of a unit is the probability that that unit, and the ones above it, survive the battle.
     %p Note that the results of a battle will be available (from the previous page) for a while, but may eventually be deleted.
     %p Use your browser's back button to return to the battle results.
+    %p
+      %a{:href=>"http://validator.w3.org/check?uri=referer"}
+        %img{:src => "http://www.w3.org/Icons/valid-xhtml10-blue",:alt=>"Valid XHTML 1.0 Strict",:height=>"31",:width=>"88",:style=>"border-style:none"}
+    / Site Meter XHTML Strict 1.0
+    %script{:type => 'text/javascript', :src=> 'http://s27.sitemeter.com/js/counter.js?site=s27webap'}
+    / Copyright (c)2006 Site Meter
 whatitmean
 end
 
@@ -859,8 +883,14 @@ __END__
           %td{:colspan=>"2"}
             %input{:type => :submit, :value => "Calculate"}
     %p
+      A list of battles already calculated and currently stored in memory is available
+      %a{:href=>"/calculated"}here.
+    %p
       %a{:href=>"http://validator.w3.org/check?uri=referer"}
-        %img{:src => "http://www.w3.org/Icons/valid-xhtml10-blue",:alt=>"Valid XHTML 1.0 Strict",:height=>"31",:width=>"88",:style=>"border-style:none"}  
+        %img{:src => "http://www.w3.org/Icons/valid-xhtml10-blue",:alt=>"Valid XHTML 1.0 Strict",:height=>"31",:width=>"88",:style=>"border-style:none"}
+    / Site Meter XHTML Strict 1.0
+    %script{:type => 'text/javascript', :src=> 'http://s27.sitemeter.com/js/counter.js?site=s27webap'}
+    / Copyright (c)2006 Site Meter
 
 @@ results
 !!! Strict
@@ -901,8 +931,14 @@ __END__
     %h2="Log"
     %p=$output[@thread_id].gsub(/\n/,'<br />')
     %p
+      %a{:href=>"../"}
+        Main Page
+    %p
       %a{:href=>"http://validator.w3.org/check?uri=referer"}
         %img{:src => "http://www.w3.org/Icons/valid-xhtml10-blue",:alt=>"Valid XHTML 1.0 Strict",:height=>"31",:width=>"88",:style=>"border-style:none"}
+    / Site Meter XHTML Strict 1.0
+    %script{:type => 'text/javascript', :src=> 'http://s27.sitemeter.com/js/counter.js?site=s27webap'}
+    / Copyright (c)2006 Site Meter
 
 @@ calculating
 !!! Strict
@@ -914,3 +950,28 @@ __END__
   %body
     %h1 Calculating
     %p=$output[@thread_id].gsub(/\n/,'<br />')
+    
+@@ calculated
+!!! Strict
+%html{:xmlns => "http://www.w3.org/1999/xhtml", "xml:lang" => "en", :lang => "en"}
+  %head
+    %meta{"http-equiv" => "Content-type", :content =>" text/html;charset=UTF-8"}
+    %title Calculated Battles
+  %body
+    %h1='Calculated Battles'
+    %ul
+      - $calcThreads.reject{|thread_id,thread| thread.status}.each_key do |thread_id|
+        %li
+          %a{:href => "results/#{thread_id}"}#{thread_id},
+          Attackers: #{$battleDetails[thread_id]['Attackers']},
+          Defenders: #{$battleDetails[thread_id]['Defenders']},
+          Completed: #{$battleDetails[thread_id]['Time Complete']}
+    %p
+      %a{:href=>"../"}
+        Main Page
+    %p
+      %a{:href=>"http://validator.w3.org/check?uri=referer"}
+        %img{:src => "http://www.w3.org/Icons/valid-xhtml10-blue",:alt=>"Valid XHTML 1.0 Strict",:height=>"31",:width=>"88",:style=>"border-style:none"}
+    / Site Meter XHTML Strict 1.0
+    %script{:type => 'text/javascript', :src=> 'http://s27.sitemeter.com/js/counter.js?site=s27webap'}
+    / Copyright (c)2006 Site Meter

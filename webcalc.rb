@@ -381,11 +381,11 @@ __END__
     %p
       Units are entered by number then type (e.g. "3 infantry 2 artillery 5 tanks"). Any space free character sequence starting with 'i' will work for infantry (for example, 'i', 'inf', 'infantry', and 'iOMG' will all work -- 'i n f' will not). Similarly, 'ar' for artillery, 'ta' for tank, 'f' for fighter, 'bo' for bomber, 'd' for destroyer, 'ba' or 'bs' for battleship, 'ai' or 'ac' or 'c' for the aircraft carrier, and 's' for submarines. The case of the letters does not matter.
     %p
-      An offline version of this program exists. Its interface is nicer, and the program will likely run faster (since this application is being hosted by a slow computer). Here are some links for more information:
+      An offline version of this program exists. Its interface is nicer, and the program may run faster (since this application is being hosted by a slow computer). Here are some links for more information:
     %ul
       %li
         The
-        %a{:href=>"https://launchpad.net/aacalc"}home page
+        %a{:href=>"https://github.com/lnmaurer/aacalc"}home page
         for development of this program. The source code is available under the GPL.
       %li
         My general

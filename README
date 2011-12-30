@@ -1,15 +1,29 @@
-Aacalc revision 74
-Copyright (C) 2008 Leon N. Maurer
+Copyright (C) 2011 Leon N. Maurer
 https://mywebspace.wisc.edu/lnmaurer/web/
 Source code available under the GNU Public License.
 
-This program calculates the exact odds of Battles in the revised edition of
-Axis and Allies. It currently does not take the first strike ability of
-submarines in to account, but all other rules are implemented. Since this program
-calculates the odds explicitly — it does not simulate them — it can be slow for
-large battles. Although it is not required, having the Ruby/GSL package
-installed will speed up calculations.
+aacalc: An odds calculator for Axis and Allies
 
+This program calculates the exact odds for battles in the revised edition of
+the Axis and Allies board game; it does not estimate the results using
+randomness. There are two versions of the program: an offline program with a
+graphical user interface made with Tk, and an online version that is used
+through a web browser. All rules except special submarine rules (first strike,
+cannot attack aircraft) are implemented. I have a plan for how to implement
+sub rules -- I'll get around to it when I have time and if there's demand. The
+current version is quite speedy if Ruby/GSL is installed (otherwise, it's
+somewhat slower).
+
+I'm hosting the online version on my server. You can find it at
+http://leon-server.dyndns.org:88/ if my server is on (it usually is).
+
+NOTE: I chose the name for this program before checking if it was already in
+use. There is a different AAcalc which is an online odds simulator. It can be
+found at <http://frood.net/aacalc/>. I have no affiliation with that project.
+
+Usage instructions for the offline version follow. The online version has usage
+instructions on its pages.
+-------------------------------------------------------------------------------
 Controls:
 
 Technology and AA guns: click the appropriate check boxes.

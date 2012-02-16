@@ -2,7 +2,7 @@ Copyright (C) 2011 Leon N. Maurer
 https://mywebspace.wisc.edu/lnmaurer/web/
 Source code available under the GNU Public License.
 
-aacalc: An odds calculator for Axis and Allies
+aaodds: An odds calculator for Axis and Allies
 
 This program calculates the exact odds for battles in the revised edition of
 the Axis and Allies board game; it does not estimate the results using
@@ -16,10 +16,6 @@ somewhat slower).
 
 I'm hosting the online version on my server. You can find it at
 http://leon-server.dyndns.org:88/ if my server is on (it usually is).
-
-NOTE: I chose the name for this program before checking if it was already in
-use. There is a different AAcalc which is an online odds simulator. It can be
-found at <http://frood.net/aacalc/>. I have no affiliation with that project.
 
 Usage instructions for the offline version follow. The online version has usage
 instructions on its pages.

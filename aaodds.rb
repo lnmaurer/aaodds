@@ -1,6 +1,6 @@
 #!/usr/bin/ruby
 
-# aacalc -- An odds calculator for Axis and Allies
+# aaodds -- An odds calculator for Axis and Allies
 #Copyright (C) 2011  Leon N. Maurer
 
 #This program is free software; you can redistribute it and/or
@@ -20,7 +20,7 @@
 
 require 'tkextlib/tile'
 require 'yaml'
-require 'aacalc_lib'
+require 'aaodds_lib'
 
 alias oldprint print
 def print(s)
@@ -189,9 +189,9 @@ class BattleGUI
     about = proc {Tk.messageBox('type' => 'ok',
       'icon' => 'info',
       'title' => 'About',
-      'message' => "Aacalc revision 74\n" + 
-      "Copyright (C) 2008 Leon N. Maurer\n" +
-      'https://launchpad.net/aacalc' + "\n" +
+      'message' => "Aaodds revision 98\n" + 
+      "Copyright (C) 2011 Leon N. Maurer\n" +
+      'https://github.com/lnmaurer/aaodds' + "\n" +
       "Source code available under the \n" +
       "GNU Public License. See the\n" +
       "Readme for information about the\n" +

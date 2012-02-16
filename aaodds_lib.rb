@@ -1,4 +1,4 @@
-# aacalc -- An odds calculator for Axis and Allies
+# aaodds -- An odds calculator for Axis and Allies
 #Copyright (C) 2011  Leon N. Maurer
 
 #This program is free software; you can redistribute it and/or

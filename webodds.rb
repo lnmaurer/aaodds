@@ -1,6 +1,6 @@
 #!/usr/bin/ruby
 
-# aacalc -- An odds calculator for Axis and Allies
+# aaodds -- An odds calculator for Axis and Allies
 #Copyright (C) 2011  Leon N. Maurer
 
 #This program is free software; you can redistribute it and/or
@@ -20,7 +20,7 @@
 require 'rubygems'
 require 'haml'
 require 'sinatra'
-require 'aacalc_lib'
+require 'aaodds_lib'
 
 #the key to the following three hashes will be the object_id of the thread
 #used for a particular battle
@@ -367,11 +367,11 @@ __END__
 %html{:xmlns => "http://www.w3.org/1999/xhtml", "xml:lang" => "en", :lang => "en"}
   %head
     %meta{"http-equiv" => "Content-type", :content =>" text/html;charset=UTF-8"}
-    %title aacalc
+    %title aaodds
   %body
     %div{:style=>"float:left;margin:4px;"}
-      %img{:src => "aacalc192.png",:height=>"192",:width=>"192",:alt=>"Logo"}
-    %h1='aacalc'
+      %img{:src => "aaodds192.png",:height=>"192",:width=>"192",:alt=>"Logo"}
+    %h1='aaodds'
     %p
       This web application calculates the exact odds for battles in the revised edition of the board game Axis and Allies -- it does not estimate the results using randomness. All rules are implemented except special submarine rules (first strike, cannot attack aircraft).
     %p
@@ -385,16 +385,12 @@ __END__
     %ul
       %li
         The
-        %a{:href=>"https://github.com/lnmaurer/aacalc"}home page
+        %a{:href=>"https://github.com/lnmaurer/aaodds"}home page
         for development of this program. The source code is available under the GPL.
       %li
         My general
         %a{:href=>"https://mywebspace.wisc.edu/lnmaurer/web/"}home page.
         It has my contact information.
-      %li
-        There is another similar program with the
-        %a{:href=>"http://frood.net/aacalc/2.0/"}same name.
-        It estimates battle outcomes using randomness. I have no relation to that project -- the name collision was unintentional.
     %form{:method => 'post', :action => "/result"}
       %table
         %tr

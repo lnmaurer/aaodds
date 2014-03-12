@@ -17,10 +17,10 @@
 #You can also receive a paper copy by writing the Free Software
 #Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+require 'aaodds_lib'
 require 'rubygems'
 require 'haml'
 require 'sinatra'
-require 'aaodds_lib'
 
 #the key to the following three hashes will be the object_id of the thread
 #used for a particular battle

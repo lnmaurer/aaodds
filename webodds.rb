@@ -17,7 +17,7 @@
 #You can also receive a paper copy by writing the Free Software
 #Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-require 'aaodds_lib'
+require_relative 'aaodds_lib'
 require 'rubygems'
 require 'haml'
 require 'sinatra'

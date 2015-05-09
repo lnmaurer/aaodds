@@ -20,7 +20,7 @@
 
 require 'tkextlib/tile'
 require 'yaml'
-require 'aaodds_lib'
+require_relative 'aaodds_lib'
 
 alias oldprint print
 def print(s)
@@ -37,11 +37,11 @@ class BattleGUI
     consoleframe = TkLabelFrame.new(@root,:text=>'Console').grid(:column=>0,:row=>3,:columnspan=>2,:sticky=>'nsew',:padx=>5,:pady=>5)
     
     #console
-    cyscroll = proc{|*args| @cscrollb.set(*args)}
-    cscroll = proc{|*args| @console.yview(*args)}
-    @console = TkText.new(consoleframe,:yscrollcommand=>cyscroll,:width=>80,:height=>10).grid(:column=>0,:row=>0,:padx=>5,:pady=>5)
-    @cscrollb = TkScrollbar.new(consoleframe,:orient=>'vertical',:command=>cscroll).grid(:column=>1,:row=>0,:padx=>5,:sticky=>'ns')
-
+    @console = TkText.new(consoleframe,:width=>80,:height=>10).grid(:column=>0,:row=>0,:padx=>5,:pady=>5)
+    @cscrollb = TkScrollbar.new(consoleframe,:orient=>'vertical').grid(:column=>1,:row=>0,:padx=>5,:sticky=>'ns')
+    @console.yscrollcommand = proc{|*args| @cscrollb.set(*args)}
+    @cscrollb.command = proc{|*args| @console.yview(*args)}
+    
     #attackers
     aclear = proc {
       @aunitsnums.each{|sbox| sbox.set("0")}

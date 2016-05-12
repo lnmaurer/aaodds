@@ -1,0 +1,73 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Aaodds by lnmaurer</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <meta name="viewport" content="width=device-width">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Aaodds</h1>
+        <p>An odds calculator for Axis and Allies</p>
+
+        <p class="view"><a href="https://github.com/lnmaurer/aaodds">View the Project on GitHub <small>lnmaurer/aaodds</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/lnmaurer/aaodds/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/lnmaurer/aaodds/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/lnmaurer/aaodds">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>
+<a id="aaodds-an-odds-calculator-for-axis-and-allies" class="anchor" href="#aaodds-an-odds-calculator-for-axis-and-allies" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>aaodds: An odds calculator for Axis and Allies</h1>
+
+<p>This program calculates the exact odds for battles in the revised edition of the Axis and Allies board game; it does not estimate the results using randomness. There are two versions of the program: an offline program with a graphical user interface made with Tk, and an online version that is used through a web browser. All rules except special submarine rules (first strike, cannot attack aircraft) are implemented. I have a plan for how to implement sub rules -- I'll get around to it when I have time and if there's demand. The current version is quite speedy if Ruby/GSL is installed (otherwise, it's somewhat slower).</p>
+
+<h1></h1>
+
+<h2>
+<a id="tk-interface" class="anchor" href="#tk-interface" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>TK interface</h2>
+
+<p><img src="http://www.physics.wisc.edu/%7Elmaurer/code/aacalc/aacalc_screen_shot.png" alt="The TK version."></p>
+
+<p>Controls:</p>
+
+<p>Technology and AA guns: click the appropriate check boxes.</p>
+
+<p>Adding units: either use the up and down arrows, or enter the text directly in to the boxes.</p>
+
+<p>Sorting units: this is the order the units will be lost in. The first unit to be lost is at the top. Clicking "value" or "power" will sort the units by that criteria. You can also put them in a custom order using the up and down buttons. They will move whatever units is currently selected in the list. After hitting 'Calculate', numbers will appear next to the units. See the next item for an explanation.</p>
+
+<p>Calculate: finds the odds for the battle. This will add numbers next to the units in the lists. The number is the probability that the unit (and all units lost after it) will survive the battle.</p>
+
+<p>Clear: clears the units for the associated side.</p>
+
+<p>Attacker wins: probability of attacker winning.</p>
+
+<p>Defender wins: probability of defender winning.</p>
+
+<p>Mutual annihilation: probability of no units surviving the battle.</p>
+
+<p>Sum: The sum of the previous three probabilities. This is shown as a debugging feature — it should always be very close to "1.0". If it is not, feel free to contact the author with details about the battle.</p>
+
+<p>Save Last Battle: saves the details of the calculated battle in a text file for future reference.</p>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/lnmaurer">lnmaurer</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
